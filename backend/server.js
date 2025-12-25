@@ -108,54 +108,115 @@ connectDB();
 // MIDDLEWARE CONFIGURATION
 // ============================================
 
-// Security Headers
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-    },
-  },
-}));
+// ============================================
+// CORS CONFIGURATION
+// ============================================
 
-// CORS Configuration
+// Define allowed origins
+const allowedOrigins = [
+  'http://localhost:3000',           // React/Next.js
+  'http://localhost:8080',           // Flutter Web
+  'http://localhost:5173',           // Vite
+  'http://10.0.2.2:5000',           // Android Emulator
+  'http://127.0.0.1:5000',          // Localhost variant
+];
+
+// Add environment variable origins
+if (process.env. FRONTEND_URL) {
+  allowedOrigins.push(process.env.FRONTEND_URL);
+}
+
+// Add custom origins from env
+if (process.env.ALLOWED_ORIGINS) {
+  allowedOrigins.push(... process.env.ALLOWED_ORIGINS.split(','));
+}
+
 const corsOptions = {
-  origin:  process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, Postman)
+    if (!origin) {
+      return callback(null, true);
+    }
+    
+    // In development, allow all origins
+    if (NODE_ENV === 'development') {
+      return callback(null, true);
+    }
+    
+    // In production, check whitelist
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   optionsSuccessStatus: 200,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders:  [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With',
+    'Accept',
+    'Origin'
+  ],
+  exposedHeaders: ['Authorization'],
+  maxAge: 86400, // Cache preflight for 24 hours
 };
+
 app.use(cors(corsOptions));
 
-// Body Parser Middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Handle preflight requests
+app.options('*', cors(corsOptions));
 
-// Cookie Parser
-app.use(cookieParser());
+// // Security Headers
+// app.use(helmet({
+//   contentSecurityPolicy: {
+//     directives: {
+//       defaultSrc: ["'self'"],
+//       styleSrc: ["'self'", "'unsafe-inline'"],
+//     },
+//   },
+// }));
 
-// Compression Middleware
-app.use(compression());
+// // CORS Configuration
+// const corsOptions = {
+//   origin:  process.env.FRONTEND_URL || 'http://localhost:3000',
+//   credentials: true,
+//   optionsSuccessStatus: 200,
+//   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+//   allowedHeaders: ['Content-Type', 'Authorization'],
+// };
+// app.use(cors(corsOptions));
 
-// Data Sanitization against NoSQL injection
-app.use(mongoSanitize());
+// // Body Parser Middleware
+// app.use(express.json({ limit: '10mb' }));
+// app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Data Sanitization against XSS
-app. use(xss());
+// // Cookie Parser
+// app.use(cookieParser());
 
-// Prevent parameter pollution
-app.use(hpp());
+// // Compression Middleware
+// app.use(compression());
 
-// HTTP Request Logger (Morgan)
-if (NODE_ENV === 'development') {
-  app.use(morgan('dev'));
-} else {
-  app.use(morgan('combined'));
-}
+// // Data Sanitization against NoSQL injection
+// app.use(mongoSanitize());
 
-// Static Files (for file uploads)
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// // Data Sanitization against XSS
+// app. use(xss());
+
+// // Prevent parameter pollution
+// app.use(hpp());
+
+// // HTTP Request Logger (Morgan)
+// if (NODE_ENV === 'development') {
+//   app.use(morgan('dev'));
+// } else {
+//   app.use(morgan('combined'));
+// }
+
+// // Static Files (for file uploads)
+// app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ============================================
 // CUSTOM MIDDLEWARE

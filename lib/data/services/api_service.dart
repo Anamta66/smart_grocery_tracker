@@ -1,122 +1,107 @@
+// lib/data/services/api_service.dart
+
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'api_config.dart';
+import '../services/local_storage_service.dart';
 
-/// Centralized API service for making HTTP requests
 class ApiService {
-  // Base URL – Replace with your actual backend URL
-  static const String baseUrl = 'http://localhost:3000/api';
+  static final LocalStorageService _storage = LocalStorageService();
 
-  /// GET request
-  static Future<dynamic> get(String endpoint) async {
+  /// GET Request
+  static Future<dynamic> get(String endpoint,
+      {Map<String, String>? params}) async {
     try {
-      final token = await _getToken();
-      final response = await http.get(
-        Uri.parse('$baseUrl/$endpoint'),
-        headers: {
-          'Content-Type': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-      );
+      final token = await _storage.getAccessToken();
+      final uri = Uri.parse('${ApiConfig.baseUrl}$endpoint')
+          .replace(queryParameters: params);
 
-      return _processResponse(response);
+      final response = await http
+          .get(
+            uri,
+            headers: ApiConfig.headers(token: token),
+          )
+          .timeout(ApiConfig.timeout);
+
+      return _handleResponse(response);
     } catch (e) {
-      throw Exception('GET request failed:  $e');
+      throw Exception('GET request failed: $e');
     }
   }
 
-  /// POST request
-  static Future<dynamic> post(
-    String endpoint,
-    Map<String, dynamic> body,
-  ) async {
+  /// POST Request
+  static Future<dynamic> post(String endpoint, dynamic body) async {
     try {
-      final token = await _getToken();
-      final response = await http.post(
-        Uri.parse('$baseUrl/$endpoint'),
-        headers: {
-          'Content-Type': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode(body),
-      );
+      final token = await _storage.getAccessToken();
+      final uri = Uri.parse('${ApiConfig.baseUrl}$endpoint');
 
-      return _processResponse(response);
+      final response = await http
+          .post(
+            uri,
+            headers: ApiConfig.headers(token: token),
+            body: jsonEncode(body),
+          )
+          .timeout(ApiConfig.timeout);
+
+      return _handleResponse(response);
     } catch (e) {
       throw Exception('POST request failed: $e');
     }
   }
 
-  /// PUT request (for updates)
-  static Future<dynamic> put(String endpoint, Map<String, dynamic> body) async {
+  /// PUT Request
+  static Future<dynamic> put(String endpoint, dynamic body) async {
     try {
-      final token = await _getToken();
-      final response = await http.put(
-        Uri.parse('$baseUrl/$endpoint'),
-        headers: {
-          'Content-Type': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode(body),
-      );
+      final token = await _storage.getAccessToken();
+      final uri = Uri.parse('${ApiConfig.baseUrl}$endpoint');
 
-      return _processResponse(response);
+      final response = await http
+          .put(
+            uri,
+            headers: ApiConfig.headers(token: token),
+            body: jsonEncode(body),
+          )
+          .timeout(ApiConfig.timeout);
+
+      return _handleResponse(response);
     } catch (e) {
       throw Exception('PUT request failed: $e');
     }
   }
 
-  /// PATCH request (for partial updates)   <-- ADD HERE (line ~66)
-  static Future<dynamic> patch(
-      String endpoint, Map<String, dynamic> body) async {
-    try {
-      final token = await _getToken();
-      final response = await http.patch(
-        Uri.parse('$baseUrl/$endpoint'),
-        headers: {
-          'Content-Type': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode(body),
-      );
-
-      return _processResponse(response);
-    } catch (e) {
-      throw Exception('PATCH request failed: $e');
-    }
-  }
-
-  /// DELETE request
+  /// DELETE Request
   static Future<dynamic> delete(String endpoint) async {
     try {
-      final token = await _getToken();
-      final response = await http.delete(
-        Uri.parse('$baseUrl/$endpoint'),
-        headers: {
-          'Content-Type': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-      );
+      final token = await _storage.getAccessToken();
+      final uri = Uri.parse('${ApiConfig.baseUrl}$endpoint');
 
-      return _processResponse(response);
+      final response = await http
+          .delete(
+            uri,
+            headers: ApiConfig.headers(token: token),
+          )
+          .timeout(ApiConfig.timeout);
+
+      return _handleResponse(response);
     } catch (e) {
       throw Exception('DELETE request failed: $e');
     }
   }
 
-  /// Process HTTP response
-  static dynamic _processResponse(http.Response response) {
+  /// Handle API Response
+  static dynamic _handleResponse(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      if (response.body.isEmpty) return null;
+      if (response.body.isEmpty) return {};
       return jsonDecode(response.body);
+    } else if (response.statusCode == 401) {
+      throw Exception('Unauthorized.  Please login again.');
+    } else if (response.statusCode == 404) {
+      throw Exception('Resource not found');
+    } else if (response.statusCode == 500) {
+      throw Exception('Server error.  Please try again later.');
     } else {
-      throw Exception('Error ${response.statusCode}: ${response.body}');
+      final errorBody = jsonDecode(response.body);
+      throw Exception(errorBody['message'] ?? 'Request failed');
     }
-  }
-
-  /// Get token from local storage
-  static Future<String?> _getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token');
   }
 }
