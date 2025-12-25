@@ -10,6 +10,7 @@ import 'package:timezone/timezone.dart' as tz;
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/constants/app_routes.dart';
+import 'data/services/local_storage_service.dart';
 import 'presentation/providers/auth_provider.dart';
 import 'presentation/providers/grocery_provider.dart';
 import 'presentation/providers/inventory_provider.dart';
@@ -37,8 +38,13 @@ void main() async {
   // Ensure Flutter bindings are initialized before running app
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Initialize local storage
+  final storage = LocalStorageService();
+  await storage.init();
+
   // Initialize timezone database for scheduling notifications
   tz.initializeTimeZones();
+
   // Set preferred orientations to portrait only for consistent UI
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
@@ -94,6 +100,10 @@ class SmartGroceryTrackerApp extends StatelessWidget {
               AppRoutes.splash: (context) => const SplashScreen(),
               AppRoutes.login: (context) => const LoginScreen(),
               AppRoutes.signup: (context) => const SignupScreen(),
+
+              // ADD THIS:  Dashboard router that directs to correct dashboard based on role
+              '/dashboard': (context) => const DashboardRouter(),
+
               AppRoutes.customerDashboard: (context) =>
                   const CustomerDashboard(),
               AppRoutes.groceryList: (context) => const GroceryListScreen(),
@@ -117,9 +127,75 @@ class SmartGroceryTrackerApp extends StatelessWidget {
               AppRoutes.searchFilter: (context) => const SearchFilterScreen(),
               AppRoutes.settings: (context) => const SettingsScreen(),
             },
+
+            // Handle unknown routes
+            onUnknownRoute: (settings) {
+              return MaterialPageRoute(
+                builder: (context) => const LoginScreen(),
+              );
+            },
           );
         },
       ),
+    );
+  }
+}
+
+/// Dashboard Router - Routes to correct dashboard based on user role
+/// This widget checks the authenticated user's role and navigates to
+/// either Customer Dashboard or Store Owner Dashboard accordingly
+class DashboardRouter extends StatelessWidget {
+  const DashboardRouter({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, child) {
+        // Show loading if auth state is being checked
+        if (authProvider.isLoading) {
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        // If not authenticated, redirect to login
+        if (!authProvider.isAuthenticated) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Navigator.pushReplacementNamed(context, AppRoutes.login);
+          });
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        // Route based on user role
+        if (authProvider.isStoreOwner) {
+          // Navigate to Store Owner Dashboard
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Navigator.pushReplacementNamed(
+              context,
+              AppRoutes.storeOwnerDashboard,
+            );
+          });
+        } else {
+          // Navigate to Customer Dashboard
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Navigator.pushReplacementNamed(
+              context,
+              AppRoutes.customerDashboard,
+            );
+          });
+        }
+
+        // Show loading while navigation happens
+        return const Scaffold(
+          body: Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+      },
     );
   }
 }
