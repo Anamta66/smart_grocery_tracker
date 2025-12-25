@@ -1,7 +1,7 @@
 // lib/data/repositories/inventory_repository.dart
-
+import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../domain/models/category_model.dart';
+import '../../data/models/category_model.dart';
 
 /// Repository managing inventory categories
 /// Handles category CRUD operations
@@ -28,7 +28,7 @@ class InventoryRepository {
         createdAt: DateTime.now(),
       );
 
-      await docRef.set(newCategory.toMap());
+      await docRef.set(newCategory.toJson());
 
       return newCategory;
     } catch (e) {
@@ -45,7 +45,7 @@ class InventoryRepository {
 
       return snapshot.docs
           .map(
-            (doc) => CategoryModel.fromMap(doc.data() as Map<String, dynamic>),
+            (doc) => CategoryModel.fromJson(doc.data() as Map<String, dynamic>),
           )
           .toList();
     } catch (e) {
@@ -60,7 +60,7 @@ class InventoryRepository {
     ) {
       return snapshot.docs
           .map(
-            (doc) => CategoryModel.fromMap(doc.data() as Map<String, dynamic>),
+            (doc) => CategoryModel.fromJson(doc.data() as Map<String, dynamic>),
           )
           .toList();
     });
@@ -74,7 +74,7 @@ class InventoryRepository {
     try {
       await _categoryCollection(
         userId,
-      ).doc(category.id).update(category.toMap());
+      ).doc(category.id).update(category.toJson());
     } catch (e) {
       throw Exception('Failed to update category: $e');
     }
@@ -106,7 +106,7 @@ class InventoryRepository {
         return null;
       }
 
-      return CategoryModel.fromMap(doc.data() as Map<String, dynamic>);
+      return CategoryModel.fromJson(doc.data() as Map<String, dynamic>);
     } catch (e) {
       throw Exception('Failed to fetch category: $e');
     }
@@ -122,56 +122,56 @@ class InventoryRepository {
           id: '',
           name: 'Fruits',
           icon: '🍎',
-          color: 0xFFFF6B6B,
+          color: const Color(0xFFFF6B6B),
           createdAt: DateTime.now(),
         ),
         CategoryModel(
           id: '',
           name: 'Vegetables',
           icon: '🥬',
-          color: 0xFF4ECDC4,
+          color: const Color(0xFF4ECDC4),
           createdAt: DateTime.now(),
         ),
         CategoryModel(
           id: '',
           name: 'Dairy',
           icon: '🥛',
-          color: 0xFFFFE66D,
+          color: const Color(0xFFFFE66D),
           createdAt: DateTime.now(),
         ),
         CategoryModel(
           id: '',
           name: 'Meat & Seafood',
           icon: '🍖',
-          color: 0xFFFF6B9D,
+          color: const Color(0xFFFF6B9D),
           createdAt: DateTime.now(),
         ),
         CategoryModel(
           id: '',
           name: 'Bakery',
           icon: '🍞',
-          color: 0xFFC9A0DC,
+          color: const Color(0xFFC9A0DC),
           createdAt: DateTime.now(),
         ),
         CategoryModel(
           id: '',
           name: 'Beverages',
           icon: '🥤',
-          color: 0xFF95E1D3,
+          color: const Color(0xFF95E1D3),
           createdAt: DateTime.now(),
         ),
         CategoryModel(
           id: '',
           name: 'Snacks',
           icon: '🍿',
-          color: 0xFFFFA07A,
+          color: const Color(0xFFFFA07A),
           createdAt: DateTime.now(),
         ),
         CategoryModel(
           id: '',
           name: 'Others',
           icon: '📦',
-          color: 0xFF9B9B9B,
+          color: const Color(0xFF9B9B9B),
           createdAt: DateTime.now(),
         ),
       ];
@@ -182,7 +182,7 @@ class InventoryRepository {
       for (final category in defaultCategories) {
         final docRef = _categoryCollection(userId).doc();
         final newCategory = category.copyWith(id: docRef.id);
-        batch.set(docRef, newCategory.toMap());
+        batch.set(docRef, newCategory.toJson());
       }
 
       await batch.commit();

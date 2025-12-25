@@ -12,6 +12,7 @@ class CategoryModel {
   final Color color;
   final int itemCount;
   final String? description;
+  final DateTime createdAt;
 
   CategoryModel({
     required this.id,
@@ -20,6 +21,7 @@ class CategoryModel {
     required this.color,
     this.itemCount = 0,
     this.description,
+    required this.createdAt,
   });
 
   /// Create CategoryModel from JSON
@@ -31,6 +33,7 @@ class CategoryModel {
       color: Color(json['color'] ?? 0xFF4CAF50),
       itemCount: json['itemCount'] ?? 0,
       description: json['description'],
+      createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }
 
@@ -54,6 +57,7 @@ class CategoryModel {
     Color? color,
     int? itemCount,
     String? description,
+    DateTime? createdAt,
   }) {
     return CategoryModel(
       id: id ?? this.id,
@@ -62,6 +66,7 @@ class CategoryModel {
       color: color ?? this.color,
       itemCount: itemCount ?? this.itemCount,
       description: description ?? this.description,
+      createdAt: this.createdAt,
     );
   }
 
@@ -73,48 +78,56 @@ class CategoryModel {
         name: 'Fruits',
         icon: '🍎',
         color: AppColors.categoryColors[0],
+        createdAt: DateTime.now(),
       ),
       CategoryModel(
         id: '2',
         name: 'Vegetables',
         icon: '🥕',
         color: AppColors.categoryColors[1],
+        createdAt: DateTime.now(),
       ),
       CategoryModel(
         id: '3',
         name: 'Dairy',
         icon: '🥛',
         color: AppColors.categoryColors[2],
+        createdAt: DateTime.now(),
       ),
       CategoryModel(
         id: '4',
         name: 'Bakery',
         icon: '🍞',
         color: AppColors.categoryColors[3],
+        createdAt: DateTime.now(),
       ),
       CategoryModel(
         id: '5',
         name: 'Meat',
         icon: '🥩',
         color: AppColors.categoryColors[4],
+        createdAt: DateTime.now(),
       ),
       CategoryModel(
         id: '6',
         name: 'Beverages',
         icon: '🥤',
         color: AppColors.categoryColors[5],
+        createdAt: DateTime.now(),
       ),
       CategoryModel(
         id: '7',
         name: 'Grains',
         icon: '🌾',
         color: AppColors.categoryColors[6],
+        createdAt: DateTime.now(),
       ),
       CategoryModel(
         id: '8',
         name: 'Frozen',
         icon: '❄️',
         color: AppColors.categoryColors[7],
+        createdAt: DateTime.now(),
       ),
     ];
   }

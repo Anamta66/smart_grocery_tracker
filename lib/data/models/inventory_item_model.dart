@@ -114,6 +114,9 @@ class InventoryItemModel {
   /// Storage location of the item
   final StorageLocation storageLocation;
 
+  /// Creation date of the item
+  final DateTime createdAt;
+
   /// Expiry date of the item
   final DateTime? expiryDate;
 
@@ -165,6 +168,7 @@ class InventoryItemModel {
     required this.categoryId,
     this.categoryName,
     this.storageLocation = StorageLocation.pantry,
+    required this.createdAt,
     this.expiryDate,
     required this.dateAdded,
     required this.lastUpdated,
@@ -282,6 +286,7 @@ class InventoryItemModel {
       categoryId: categoryId ?? this.categoryId,
       categoryName: categoryName ?? this.categoryName,
       storageLocation: storageLocation ?? this.storageLocation,
+      createdAt: createdAt ?? this.createdAt,
       expiryDate: expiryDate ?? this.expiryDate,
       dateAdded: dateAdded ?? this.dateAdded,
       lastUpdated: lastUpdated ?? this.lastUpdated,
@@ -345,6 +350,7 @@ class InventoryItemModel {
         (e) => e.name == json['storageLocation'],
         orElse: () => StorageLocation.pantry,
       ),
+      createdAt: DateTime.parse(json['createdAt'] as String),
       expiryDate: json['expiryDate'] != null
           ? DateTime.parse(json['expiryDate'] as String)
           : null,
@@ -376,6 +382,7 @@ class InventoryItemModel {
       unit: 'pieces',
       categoryId: '',
       userId: userId,
+      createdAt: now,
       dateAdded: now,
       lastUpdated: now,
     );

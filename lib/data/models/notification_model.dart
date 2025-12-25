@@ -28,6 +28,7 @@ class NotificationModel {
   final NotificationPriority priority;
   final NotificationStatus status;
   final DateTime timestamp;
+  final DateTime? createdAt;
   final DateTime? expiryDate;
   final String? groceryItemId;
   final String? groceryItemName;
@@ -50,6 +51,7 @@ class NotificationModel {
     this.priority = NotificationPriority.medium,
     this.status = NotificationStatus.unread,
     required this.timestamp,
+    this.createdAt,
     this.expiryDate,
     this.groceryItemId,
     this.groceryItemName,
@@ -264,6 +266,7 @@ class NotificationModel {
     NotificationPriority? priority,
     NotificationStatus? status,
     DateTime? timestamp,
+    DateTime? createdAt,
     DateTime? expiryDate,
     String? groceryItemId,
     String? groceryItemName,
@@ -285,6 +288,7 @@ class NotificationModel {
       priority: priority ?? this.priority,
       status: status ?? this.status,
       timestamp: timestamp ?? this.timestamp,
+      createdAt: createdAt ?? this.createdAt,
       expiryDate: expiryDate ?? this.expiryDate,
       groceryItemId: groceryItemId ?? this.groceryItemId,
       groceryItemName: groceryItemName ?? this.groceryItemName,

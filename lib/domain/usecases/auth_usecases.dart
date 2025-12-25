@@ -1,22 +1,24 @@
 // lib/domain/usecases/auth_usecases.dart
 
+import 'package:smart_grocery_tracker/data/models/user_model.dart';
+
 import '../entities/user.dart';
 import '../../data/repositories/auth_repository.dart';
 
-/// UseCase:  Login
+/// UseCase:  SignIn
 class LoginUseCase {
   final AuthRepository repository;
 
   LoginUseCase(this.repository);
 
-  Future<User> call(String email, String password) async {
+  Future<UserModel> call(String email, String password) async {
     // Validate input
     if (email.isEmpty || password.isEmpty) {
       throw Exception('Email and password cannot be empty');
     }
 
     // Call repository
-    return await repository.login(email, password);
+    return await repository.signIn(email: email, password: password);
   }
 }
 
@@ -26,10 +28,11 @@ class RegisterUseCase {
 
   RegisterUseCase(this.repository);
 
-  Future<User> call({
+  Future<UserModel> call({
     required String name,
     required String email,
     required String password,
+    required String phone,
   }) async {
     // Validate input
     if (name.isEmpty || email.isEmpty || password.isEmpty) {
@@ -41,7 +44,8 @@ class RegisterUseCase {
     }
 
     // Call repository
-    return await repository.register(name, email, password);
+    return await repository.signUp(
+        name: name, email: email, password: password, phone: phone);
   }
 }
 
@@ -52,7 +56,7 @@ class LogoutUseCase {
   LogoutUseCase(this.repository);
 
   Future<void> call() async {
-    return await repository.logout();
+    return await repository.signOut();
   }
 }
 
@@ -62,8 +66,8 @@ class GetCurrentUserUseCase {
 
   GetCurrentUserUseCase(this.repository);
 
-  Future<User?> call() async {
-    return await repository.getCurrentUser();
+  Future<UserModel?> call() async {
+    return await repository.currentUser();
   }
 }
 

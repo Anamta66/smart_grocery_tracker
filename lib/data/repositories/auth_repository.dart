@@ -41,16 +41,23 @@ class AuthRepository {
       }
 
       // Create user profile in Firestore
+      final now = DateTime.now();
       final userModel = UserModel(
         id: user.uid,
         email: email,
         name: name,
         phone: phone,
-        createdAt: DateTime.now(),
-        notificationsEnabled: true,
+        role: UserRole.customer,
+        createdAt: now,
+        updatedAt: now,
+        //createdAt: DateTime.now(),
+        //notificationsEnabled: true,
       );
 
-      await _firestore.collection('users').doc(user.uid).set(userModel.toMap());
+      await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .set(userModel.toJson());
 
       // Update display name
       await user.updateDisplayName(name);
@@ -103,7 +110,7 @@ class AuthRepository {
         throw Exception('User profile not found');
       }
 
-      return UserModel.fromMap(doc.data()!);
+      return UserModel.fromJson(doc.data()!);
     } on FirebaseAuthException catch (e) {
       // Handle specific Firebase Auth errors
       switch (e.code) {
@@ -145,7 +152,7 @@ class AuthRepository {
         return null;
       }
 
-      return UserModel.fromMap(doc.data()!);
+      return UserModel.fromJson(doc.data()!);
     } catch (e) {
       throw Exception('Failed to fetch user profile: $e');
     }
@@ -156,7 +163,7 @@ class AuthRepository {
   /// Updates fields like name, phone, notifications preference
   Future<void> updateUserProfile(UserModel user) async {
     try {
-      await _firestore.collection('users').doc(user.id).update(user.toMap());
+      await _firestore.collection('users').doc(user.id).update(user.toJson());
     } catch (e) {
       throw Exception('Failed to update profile: $e');
     }

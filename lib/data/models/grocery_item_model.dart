@@ -121,6 +121,7 @@ class GroceryItemModel {
 
   /// Quantity of the item needed
   final double quantity;
+  final int minQuantity;
 
   /// Unit of measurement
   final GroceryUnit unit;
@@ -188,6 +189,7 @@ class GroceryItemModel {
     required this.name,
     this.description,
     required this.quantity,
+    required this.minQuantity,
     this.unit = GroceryUnit.pieces,
     required this.categoryId,
     this.categoryName,
@@ -280,6 +282,7 @@ class GroceryItemModel {
       name: name ?? this.name,
       description: description ?? this.description,
       quantity: quantity ?? this.quantity,
+      minQuantity: minQuantity ?? this.minQuantity,
       unit: unit ?? this.unit,
       categoryId: categoryId ?? this.categoryId,
       categoryName: categoryName ?? this.categoryName,
@@ -341,6 +344,7 @@ class GroceryItemModel {
       name: json['name'] as String,
       description: json['description'] as String?,
       quantity: (json['quantity'] as num).toDouble(),
+      minQuantity: json['minQuantity'] ?? 1,
       unit: GroceryUnit.values.firstWhere(
         (e) => e.name == json['unit'],
         orElse: () => GroceryUnit.pieces,
@@ -381,6 +385,7 @@ class GroceryItemModel {
       id: '',
       name: '',
       quantity: 1,
+      minQuantity: 1,
       unit: GroceryUnit.pieces,
       categoryId: categoryId ?? '',
       priority: GroceryPriority.medium,

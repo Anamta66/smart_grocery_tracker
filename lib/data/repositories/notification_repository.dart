@@ -1,9 +1,11 @@
 // lib/data/repositories/notification_repository.dart
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest.dart' as tz;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import '../../domain/models/notification_model. dart';
+import '../../data/models/notification_model.dart';
 
 /// Repository handling push notifications and notification history
 /// Manages FCM tokens, local notifications, and notification storage
@@ -117,7 +119,7 @@ class NotificationRepository {
         createdAt: DateTime.now(),
       );
 
-      await docRef.set(newNotification.toMap());
+      await docRef.set(newNotification.toJson());
 
       return newNotification;
     } catch (e) {
@@ -137,7 +139,7 @@ class NotificationRepository {
       return snapshot.docs
           .map(
             (doc) =>
-                NotificationModel.fromMap(doc.data() as Map<String, dynamic>),
+                NotificationModel.fromJson(doc.data() as Map<String, dynamic>),
           )
           .toList();
     } catch (e) {
@@ -153,7 +155,7 @@ class NotificationRepository {
       return snapshot.docs
           .map(
             (doc) =>
-                NotificationModel.fromMap(doc.data() as Map<String, dynamic>),
+                NotificationModel.fromJson(doc.data() as Map<String, dynamic>),
           )
           .toList();
     });
@@ -266,9 +268,16 @@ class NotificationRepository {
   }
 
   /// Helper:  Calculate next instance of specified time
-  DateTime _nextInstanceOfTime(int hour, int minute) {
-    final now = DateTime.now();
-    var scheduledDate = DateTime(now.year, now.month, now.day, hour, minute);
+  tz.TZDateTime _nextInstanceOfTime(int hour, int minute) {
+    final now = tz.TZDateTime.now(tz.local);
+    var scheduledDate = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      hour,
+      minute,
+    );
 
     if (scheduledDate.isBefore(now)) {
       scheduledDate = scheduledDate.add(const Duration(days: 1));

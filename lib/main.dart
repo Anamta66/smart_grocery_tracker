@@ -5,7 +5,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/constants/app_routes.dart';
@@ -36,6 +37,8 @@ void main() async {
   // Ensure Flutter bindings are initialized before running app
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Initialize timezone database for scheduling notifications
+  tz.initializeTimeZones();
   // Set preferred orientations to portrait only for consistent UI
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,

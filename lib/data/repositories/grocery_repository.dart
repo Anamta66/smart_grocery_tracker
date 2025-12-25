@@ -1,7 +1,7 @@
 // lib/data/repositories/grocery_repository.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../domain/models/grocery_item_model.dart';
+import '../../data/models/grocery_item_model.dart';
 
 /// Repository for grocery item CRUD operations
 /// Handles all database interactions for grocery management
@@ -30,7 +30,7 @@ class GroceryRepository {
       final newItem = item.copyWith(id: docRef.id, createdAt: DateTime.now());
 
       // Save to Firestore
-      await docRef.set(newItem.toMap());
+      await docRef.set(newItem.toJson());
 
       return newItem;
     } catch (e) {
@@ -50,7 +50,7 @@ class GroceryRepository {
       return snapshot.docs
           .map(
             (doc) =>
-                GroceryItemModel.fromMap(doc.data() as Map<String, dynamic>),
+                GroceryItemModel.fromJson(doc.data() as Map<String, dynamic>),
           )
           .toList();
     } catch (e) {
@@ -68,7 +68,7 @@ class GroceryRepository {
       return snapshot.docs
           .map(
             (doc) =>
-                GroceryItemModel.fromMap(doc.data() as Map<String, dynamic>),
+                GroceryItemModel.fromJson(doc.data() as Map<String, dynamic>),
           )
           .toList();
     });
@@ -82,7 +82,7 @@ class GroceryRepository {
     required GroceryItemModel item,
   }) async {
     try {
-      await _groceryCollection(userId).doc(item.id).update(item.toMap());
+      await _groceryCollection(userId).doc(item.id).update(item.toJson());
     } catch (e) {
       throw Exception('Failed to update grocery item: $e');
     }
@@ -116,7 +116,7 @@ class GroceryRepository {
       return snapshot.docs
           .map(
             (doc) =>
-                GroceryItemModel.fromMap(doc.data() as Map<String, dynamic>),
+                GroceryItemModel.fromJson(doc.data() as Map<String, dynamic>),
           )
           .toList();
     } catch (e) {
@@ -147,7 +147,7 @@ class GroceryRepository {
       return snapshot.docs
           .map(
             (doc) =>
-                GroceryItemModel.fromMap(doc.data() as Map<String, dynamic>),
+                GroceryItemModel.fromJson(doc.data() as Map<String, dynamic>),
           )
           .toList();
     } catch (e) {
@@ -169,7 +169,7 @@ class GroceryRepository {
       final items = snapshot.docs
           .map(
             (doc) =>
-                GroceryItemModel.fromMap(doc.data() as Map<String, dynamic>),
+                GroceryItemModel.fromJson(doc.data() as Map<String, dynamic>),
           )
           .where(
             (item) => item.name.toLowerCase().contains(query.toLowerCase()),
@@ -193,9 +193,9 @@ class GroceryRepository {
       final items = snapshot.docs
           .map(
             (doc) =>
-                GroceryItemModel.fromMap(doc.data() as Map<String, dynamic>),
+                GroceryItemModel.fromJson(doc.data() as Map<String, dynamic>),
           )
-          .where((item) => item.currentQuantity < item.minQuantity)
+          .where((item) => item.quantity < item.minQuantity)
           .toList();
 
       return items;
