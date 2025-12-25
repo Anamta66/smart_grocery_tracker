@@ -1,11 +1,10 @@
 // lib/presentation/widgets/inventory_item_card.dart
 
 import 'package:flutter/material.dart';
-import '../../domain/entities/inventory_item.dart';
+import '../../data/models/grocery_item_model.dart'; // Changed import
 
-/// Reusable Card for Inventory Items
 class InventoryItemCard extends StatelessWidget {
-  final InventoryItem item;
+  final GroceryItemModel item; // Changed from InventoryItem to GroceryItemModel
   final VoidCallback onTap;
   final VoidCallback onDelete;
   final Function(int) onQuickUpdate;
@@ -21,15 +20,12 @@ class InventoryItemCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isLowStock = (item.quantity) <= (item.lowStockThreshold ?? 0);
+    final isLowStock = item.quantity < 5;
 
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: isLowStock
-            ? BorderSide(color: theme.colorScheme.error, width: 2)
-            : BorderSide.none,
       ),
       child: InkWell(
         onTap: onTap,
@@ -39,12 +35,13 @@ class InventoryItemCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Header Row
               Row(
                 children: [
                   // Item Icon
                   Container(
-                    width: 50,
-                    height: 50,
+                    width: 48,
+                    height: 48,
                     decoration: BoxDecoration(
                       color: theme.colorScheme.primaryContainer,
                       borderRadius: BorderRadius.circular(8),
@@ -52,11 +49,12 @@ class InventoryItemCard extends StatelessWidget {
                     child: Icon(
                       Icons.inventory_2,
                       color: theme.colorScheme.onPrimaryContainer,
+                      size: 24,
                     ),
                   ),
                   const SizedBox(width: 12),
 
-                  // Item Details
+                  // Item Name and Category
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -66,11 +64,13 @@ class InventoryItemCard extends StatelessWidget {
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
+                        const SizedBox(height: 4),
                         Text(
-                          item.category,
-                          style: TextStyle(
-                            fontSize: 12,
+                          item.categoryId ?? 'Uncategorized',
+                          style: theme.textTheme.bodySmall?.copyWith(
                             color: Colors.grey[600],
                           ),
                         ),
@@ -78,84 +78,130 @@ class InventoryItemCard extends StatelessWidget {
                     ),
                   ),
 
-                  // Price
-                  Text(
-                    '\$${item.price?.toStringAsFixed(2) ?? '0.00'}',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.primary,
-                    ),
+                  // Delete Button
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    color: theme.colorScheme.error,
+                    onPressed: onDelete,
+                    tooltip: 'Delete',
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
 
-              // Stock Level
+              const Divider(height: 24),
+
+              // Stock Information Row
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Icon(
-                    isLowStock ? Icons.warning_amber : Icons.check_circle,
-                    size: 16,
-                    color: isLowStock ? theme.colorScheme.error : Colors.green,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Stock: ${item.quantity}',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color:
-                          isLowStock ? theme.colorScheme.error : Colors.green,
+                  // Stock Level
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Current Stock',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              isLowStock
+                                  ? Icons.warning_amber_rounded
+                                  : Icons.check_circle,
+                              size: 18,
+                              color: isLowStock ? Colors.orange : Colors.green,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${item.quantity.toInt()}',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color:
+                                    isLowStock ? Colors.orange : Colors.green,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                  const Spacer(),
 
                   // Quick Update Buttons
-                  IconButton(
-                    icon: const Icon(Icons.remove_circle_outline),
-                    onPressed: item.quantity > 0
-                        ? () => onQuickUpdate(item.quantity - 1)
-                        : null,
-                    iconSize: 20,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.add_circle_outline),
-                    onPressed: () => onQuickUpdate(item.quantity + 1),
-                    iconSize: 20,
+                  Container(
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.remove),
+                          onPressed: item.quantity > 0
+                              ? () => onQuickUpdate(item.quantity.toInt() - 1)
+                              : null,
+                          tooltip: 'Decrease',
+                          color: theme.colorScheme.primary,
+                        ),
+                        Container(
+                          width: 1,
+                          height: 24,
+                          color:
+                              theme.colorScheme.outline.withValues(alpha: 0.2),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.add),
+                          onPressed: () =>
+                              onQuickUpdate(item.quantity.toInt() + 1),
+                          tooltip: 'Increase',
+                          color: theme.colorScheme.primary,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
 
-              if (isLowStock)
+              // Low Stock Warning Banner
+              if (isLowStock) ...[
+                const SizedBox(height: 12),
                 Container(
-                  margin: const EdgeInsets.only(top: 8),
                   padding: const EdgeInsets.symmetric(
-                    vertical: 6,
                     horizontal: 12,
+                    vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.errorContainer.withOpacity(0.3),
+                    color: Colors.orange.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Colors.orange.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: Row(
                     children: [
                       Icon(
-                        Icons.warning_amber,
-                        size: 14,
-                        color: theme.colorScheme.error,
+                        Icons.warning_amber_rounded,
+                        size: 16,
+                        color: Colors.orange[800],
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 8),
                       Text(
                         'Low Stock Alert',
                         style: TextStyle(
                           fontSize: 12,
-                          color: theme.colorScheme.error,
                           fontWeight: FontWeight.w600,
+                          color: Colors.orange[800],
                         ),
                       ),
                     ],
                   ),
                 ),
+              ],
             ],
           ),
         ),

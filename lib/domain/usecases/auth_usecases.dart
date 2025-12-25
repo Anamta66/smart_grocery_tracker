@@ -22,7 +22,7 @@ class LoginUseCase {
   }
 }
 
-/// UseCase: Register
+/// UseCase: SignUp
 class RegisterUseCase {
   final AuthRepository repository;
 
@@ -49,7 +49,7 @@ class RegisterUseCase {
   }
 }
 
-/// UseCase: Logout
+/// UseCase: Sign Out
 class LogoutUseCase {
   final AuthRepository repository;
 
@@ -66,8 +66,21 @@ class GetCurrentUserUseCase {
 
   GetCurrentUserUseCase(this.repository);
 
-  Future<UserModel?> call() async {
-    return await repository.currentUser();
+  Future<UserModel> call() async {
+    final user = repository.currentUser;
+    if (user == null) {
+      throw Exception('No user is currently logged in');
+    }
+
+    return UserModel(
+      id: user.uid,
+      email: user.email ?? '',
+      name: user.displayName ?? '',
+      phone: '', // optional, fetch from Firestore if needed
+      role: UserRole.customer,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
   }
 }
 

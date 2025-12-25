@@ -1,7 +1,9 @@
 // lib/domain/usecases/inventory_usecases.dart
 
+import 'package:smart_grocery_tracker/data/models/grocery_item_model.dart';
+
 import '../entities/grocery_item.dart';
-import '../repositories/grocery_repository.dart';
+import '../../data/repositories/grocery_repository.dart';
 
 /// UseCase: Get Inventory Summary
 class GetInventorySummaryUseCase {
@@ -9,11 +11,11 @@ class GetInventorySummaryUseCase {
 
   GetInventorySummaryUseCase(this.repository);
 
-  Future<Map<String, dynamic>> call() async {
-    final items = await repository.getGroceryItems();
+  Future<Map<String, dynamic>> call(String userId) async {
+    final items = await repository.getGroceryItems(userId);
 
     int totalItems = items.length;
-    int totalQuantity = items.fold(0, (sum, item) => sum + item.quantity);
+    double totalQuantity = items.fold(0, (sum, item) => sum + item.quantity);
     int lowStockItems = items.where((item) => item.quantity < 5).length;
     int expiringSoon = items.where((item) {
       if (item.expiryDate == null) return false;
@@ -35,8 +37,9 @@ class GetLowStockItemsUseCase {
 
   GetLowStockItemsUseCase(this.repository);
 
-  Future<List<GroceryItem>> call({int threshold = 5}) async {
-    final items = await repository.getGroceryItems();
+  Future<List<GroceryItemModel>> call(
+      {required String userId, int threshold = 5}) async {
+    final items = await repository.getGroceryItems(userId);
     return items.where((item) => item.quantity < threshold).toList();
   }
 }
@@ -47,7 +50,7 @@ class UpdateStockQuantityUseCase {
 
   UpdateStockQuantityUseCase(this.repository);
 
-  Future<void> call(String itemId, int newQuantity) async {
+  Future<void> call(String userId, String itemId, int newQuantity) async {
     if (itemId.isEmpty) {
       throw Exception('Item ID cannot be empty');
     }
@@ -57,15 +60,16 @@ class UpdateStockQuantityUseCase {
     }
 
     // Get item first
-    final items = await repository.getGroceryItems();
+    final items = await repository.getGroceryItems(userId);
     final item = items.firstWhere(
       (i) => i.id == itemId,
       orElse: () => throw Exception('Item not found'),
     );
 
     // Update quantity
-    final updatedItem = item.copyWith(quantity: newQuantity);
-    return await repository.updateGroceryItem(updatedItem);
+    final updatedItem = item.copyWith(quantity: newQuantity.toDouble());
+    return await repository.updateGroceryItem(
+        userId: userId, item: updatedItem);
   }
 }
 
@@ -75,7 +79,7 @@ class TrackItemUsageUseCase {
 
   TrackItemUsageUseCase(this.repository);
 
-  Future<void> call(String itemId, int usedQuantity) async {
+  Future<void> call(String userId, String itemId, int usedQuantity) async {
     if (itemId.isEmpty) {
       throw Exception('Item ID cannot be empty');
     }
@@ -85,21 +89,22 @@ class TrackItemUsageUseCase {
     }
 
     // Get item
-    final items = await repository.getGroceryItems();
+    final items = await repository.getGroceryItems(userId);
     final item = items.firstWhere(
       (i) => i.id == itemId,
       orElse: () => throw Exception('Item not found'),
     );
 
     // Calculate new quantity
-    int newQuantity = item.quantity - usedQuantity;
+    double newQuantity = item.quantity - usedQuantity;
     if (newQuantity < 0) {
       throw Exception('Insufficient quantity');
     }
 
     // Update item
     final updatedItem = item.copyWith(quantity: newQuantity);
-    return await repository.updateGroceryItem(updatedItem);
+    return await repository.updateGroceryItem(
+        userId: userId, item: updatedItem);
   }
 }
 
@@ -109,7 +114,7 @@ class RestockItemUseCase {
 
   RestockItemUseCase(this.repository);
 
-  Future<void> call(String itemId, int addQuantity) async {
+  Future<void> call(String userId, String itemId, int addQuantity) async {
     if (itemId.isEmpty) {
       throw Exception('Item ID cannot be empty');
     }
@@ -119,18 +124,19 @@ class RestockItemUseCase {
     }
 
     // Get item
-    final items = await repository.getGroceryItems();
+    final items = await repository.getGroceryItems(userId);
     final item = items.firstWhere(
       (i) => i.id == itemId,
       orElse: () => throw Exception('Item not found'),
     );
 
     // Calculate new quantity
-    int newQuantity = item.quantity + addQuantity;
+    double newQuantity = item.quantity + addQuantity;
 
     // Update item
     final updatedItem = item.copyWith(quantity: newQuantity);
-    return await repository.updateGroceryItem(updatedItem);
+    return await repository.updateGroceryItem(
+        userId: userId, item: updatedItem);
   }
 }
 
@@ -140,8 +146,9 @@ class GetItemsByExpiryRangeUseCase {
 
   GetItemsByExpiryRangeUseCase(this.repository);
 
-  Future<List<GroceryItem>> call(DateTime start, DateTime end) async {
-    final items = await repository.getGroceryItems();
+  Future<List<GroceryItemModel>> call(
+      String userId, DateTime start, DateTime end) async {
+    final items = await repository.getGroceryItems(userId);
     return items.where((item) {
       if (item.expiryDate == null) return false;
       return item.expiryDate!.isAfter(start) && item.expiryDate!.isBefore(end);
@@ -155,8 +162,8 @@ class AutoSuggestRestockUseCase {
 
   AutoSuggestRestockUseCase(this.repository);
 
-  Future<List<GroceryItem>> call() async {
-    final items = await repository.getGroceryItems();
+  Future<List<GroceryItemModel>> call(String userId) async {
+    final items = await repository.getGroceryItems(userId);
 
     // Suggest items with quantity < 5 or items used frequently
     return items.where((item) => item.quantity < 5).toList();

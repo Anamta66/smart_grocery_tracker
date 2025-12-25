@@ -52,7 +52,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
               if (confirm == true && mounted) {
                 Provider.of<NotificationProvider>(context, listen: false)
-                    .clearAllNotifications();
+                    .clearAll();
               }
             },
           ),

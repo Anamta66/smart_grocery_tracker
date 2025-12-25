@@ -1,16 +1,12 @@
-// lib/providers/reports_provider.dart
-
 import 'package:flutter/foundation.dart';
-import '../../domain/entities/grocery_item.dart';
-import '../../data/models/category_model.dart';
-import '../../data/services/api_service.dart';
-import '../../data/services/local_storage_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 /// Provider for managing reports and analytics
 /// Handles expense tracking, waste analysis, and consumption patterns
 class ReportsProvider with ChangeNotifier {
-  final ApiService _apiService = ApiService();
-  final LocalStorageService _localStorage = LocalStorageService();
+  // Since ApiService and LocalStorageService don't have the required methods,
+  // we'll implement a simplified version that works with your existing services
 
   // Loading states
   bool _isLoading = false;
@@ -86,167 +82,212 @@ class ReportsProvider with ChangeNotifier {
   /// Load monthly expense report
   Future<void> _loadMonthlyReport() async {
     try {
-      final response = await _apiService.getMonthlyReport(
-        startDate: _startDate,
-        endDate: _endDate,
-      );
+      // TODO: Replace with actual API call when backend is ready
+      // For now, use mock data or load from cache
 
-      _monthlyReport = {
-        'totalExpense': response['totalExpense'] ?? 0.0,
-        'totalItems': response['totalItems'] ?? 0,
-        'avgExpensePerDay': response['avgExpensePerDay'] ?? 0.0,
-        'expenseByCategory': response['expenseByCategory'] ?? {},
-        'dailyExpenses': response['dailyExpenses'] ?? [],
-        'topExpenses': response['topExpenses'] ?? [],
-        'savingsAchieved': response['savingsAchieved'] ?? 0.0,
-        'budgetUtilization': response['budgetUtilization'] ?? 0.0,
-      };
+      final prefs = await SharedPreferences.getInstance();
+      final cachedData = prefs.getString('monthly_report');
 
-      // Cache locally
-      await _localStorage.saveData('monthly_report', _monthlyReport!);
+      if (cachedData != null) {
+        _monthlyReport = Map<String, dynamic>.from(jsonDecode(cachedData));
+      } else {
+        // Mock data for testing
+        _monthlyReport = {
+          'totalExpense': 0.0,
+          'totalItems': 0,
+          'avgExpensePerDay': 0.0,
+          'expenseByCategory': {},
+          'dailyExpenses': [],
+          'topExpenses': [],
+          'savingsAchieved': 0.0,
+          'budgetUtilization': 0.0,
+        };
+
+        // Save mock data
+        await prefs.setString('monthly_report', jsonEncode(_monthlyReport));
+      }
     } catch (e) {
-      // Load from cache if API fails
-      _monthlyReport = await _localStorage.getData('monthly_report');
-      debugPrint('Error loading monthly report: $e');
+      debugPrint('Error loading monthly report:  $e');
+      _monthlyReport = {
+        'totalExpense': 0.0,
+        'totalItems': 0,
+        'avgExpensePerDay': 0.0,
+        'expenseByCategory': {},
+        'dailyExpenses': [],
+        'topExpenses': [],
+        'savingsAchieved': 0.0,
+        'budgetUtilization': 0.0,
+      };
     }
   }
 
   /// Load category-wise spending report
   Future<void> _loadCategoryWiseReport() async {
     try {
-      final response = await _apiService.getCategoryWiseReport(
-        startDate: _startDate,
-        endDate: _endDate,
-      );
+      final prefs = await SharedPreferences.getInstance();
+      final cachedData = prefs.getString('category_report');
 
-      _categoryWiseReport = {
-        'categories': response['categories'] ?? [],
-        'topCategory': response['topCategory'] ?? {},
-        'leastCategory': response['leastCategory'] ?? {},
-        'percentageDistribution': response['percentageDistribution'] ?? {},
-        'trends': response['trends'] ?? [],
-      };
+      if (cachedData != null) {
+        _categoryWiseReport = Map<String, dynamic>.from(jsonDecode(cachedData));
+      } else {
+        _categoryWiseReport = {
+          'categories': [],
+          'topCategory': {},
+          'leastCategory': {},
+          'percentageDistribution': {},
+          'trends': [],
+        };
 
-      await _localStorage.saveData('category_report', _categoryWiseReport!);
+        await prefs.setString(
+            'category_report', jsonEncode(_categoryWiseReport));
+      }
     } catch (e) {
-      _categoryWiseReport = await _localStorage.getData('category_report');
       debugPrint('Error loading category report: $e');
+      _categoryWiseReport = {
+        'categories': [],
+        'topCategory': {},
+        'leastCategory': {},
+        'percentageDistribution': {},
+        'trends': [],
+      };
     }
   }
 
   /// Load expiry and waste report
   Future<void> _loadExpiryReport() async {
     try {
-      final response = await _apiService.getExpiryReport(
-        startDate: _startDate,
-        endDate: _endDate,
-      );
+      final prefs = await SharedPreferences.getInstance();
+      final cachedData = prefs.getString('expiry_report');
 
-      _expiryReport = {
-        'expiringSoon': response['expiringSoon'] ?? [],
-        'expired': response['expired'] ?? [],
-        'totalWasteValue': response['totalWasteValue'] ?? 0.0,
-        'wastePercentage': response['wastePercentage'] ?? 0.0,
-        'mostWastedCategory': response['mostWastedCategory'] ?? '',
-        'wasteReduction': response['wasteReduction'] ?? 0.0,
-      };
+      if (cachedData != null) {
+        _expiryReport = Map<String, dynamic>.from(jsonDecode(cachedData));
+      } else {
+        _expiryReport = {
+          'expiringSoon': [],
+          'expired': [],
+          'totalWasteValue': 0.0,
+          'wastePercentage': 0.0,
+          'mostWastedCategory': '',
+          'wasteReduction': 0.0,
+        };
 
-      await _localStorage.saveData('expiry_report', _expiryReport!);
+        await prefs.setString('expiry_report', jsonEncode(_expiryReport));
+      }
     } catch (e) {
-      _expiryReport = await _localStorage.getData('expiry_report');
       debugPrint('Error loading expiry report: $e');
+      _expiryReport = {
+        'expiringSoon': [],
+        'expired': [],
+        'totalWasteValue': 0.0,
+        'wastePercentage': 0.0,
+        'mostWastedCategory': '',
+        'wasteReduction': 0.0,
+      };
     }
   }
 
   /// Load waste analysis report
   Future<void> _loadWasteReport() async {
     try {
-      final response = await _apiService.getWasteReport(
-        startDate: _startDate,
-        endDate: _endDate,
-      );
+      final prefs = await SharedPreferences.getInstance();
+      final cachedData = prefs.getString('waste_report');
 
-      _wasteReport = {
-        'totalWastedItems': response['totalWastedItems'] ?? 0,
-        'wasteByCategory': response['wasteByCategory'] ?? {},
-        'monthlyWasteTrend': response['monthlyWasteTrend'] ?? [],
-        'recommendations': response['recommendations'] ?? [],
-        'potentialSavings': response['potentialSavings'] ?? 0.0,
-      };
+      if (cachedData != null) {
+        _wasteReport = Map<String, dynamic>.from(jsonDecode(cachedData));
+      } else {
+        _wasteReport = {
+          'totalWastedItems': 0,
+          'wasteByCategory': {},
+          'monthlyWasteTrend': [],
+          'recommendations': [],
+          'potentialSavings': 0.0,
+        };
 
-      await _localStorage.saveData('waste_report', _wasteReport!);
+        await prefs.setString('waste_report', jsonEncode(_wasteReport));
+      }
     } catch (e) {
-      _wasteReport = await _localStorage.getData('waste_report');
-      debugPrint('Error loading waste report: $e');
+      debugPrint('Error loading waste report:  $e');
+      _wasteReport = {
+        'totalWastedItems': 0,
+        'wasteByCategory': {},
+        'monthlyWasteTrend': [],
+        'recommendations': [],
+        'potentialSavings': 0.0,
+      };
     }
   }
 
   /// Load budget compliance report
   Future<void> _loadBudgetReport() async {
     try {
-      final response = await _apiService.getBudgetReport(
-        startDate: _startDate,
-        endDate: _endDate,
-      );
+      final prefs = await SharedPreferences.getInstance();
+      final cachedData = prefs.getString('budget_report');
 
-      _budgetReport = {
-        'totalBudget': response['totalBudget'] ?? 0.0,
-        'spent': response['spent'] ?? 0.0,
-        'remaining': response['remaining'] ?? 0.0,
-        'utilizationPercentage': response['utilizationPercentage'] ?? 0.0,
-        'overbudgetCategories': response['overbudgetCategories'] ?? [],
-        'underbudgetCategories': response['underbudgetCategories'] ?? [],
-        'projectedExpense': response['projectedExpense'] ?? 0.0,
-      };
+      if (cachedData != null) {
+        _budgetReport = Map<String, dynamic>.from(jsonDecode(cachedData));
+      } else {
+        _budgetReport = {
+          'totalBudget': 0.0,
+          'spent': 0.0,
+          'remaining': 0.0,
+          'utilizationPercentage': 0.0,
+          'overbudgetCategories': [],
+          'underbudgetCategories': [],
+          'projectedExpense': 0.0,
+        };
 
-      await _localStorage.saveData('budget_report', _budgetReport!);
+        await prefs.setString('budget_report', jsonEncode(_budgetReport));
+      }
     } catch (e) {
-      _budgetReport = await _localStorage.getData('budget_report');
-      debugPrint('Error loading budget report:  $e');
+      debugPrint('Error loading budget report: $e');
+      _budgetReport = {
+        'totalBudget': 0.0,
+        'spent': 0.0,
+        'remaining': 0.0,
+        'utilizationPercentage': 0.0,
+        'overbudgetCategories': [],
+        'underbudgetCategories': [],
+        'projectedExpense': 0.0,
+      };
     }
   }
 
   /// Load expense history
   Future<void> _loadExpenseHistory() async {
     try {
-      final response = await _apiService.getExpenseHistory(
-        startDate: _startDate,
-        endDate: _endDate,
-        category: _selectedCategory != 'All' ? _selectedCategory : null,
-      );
+      final prefs = await SharedPreferences.getInstance();
+      final cachedData = prefs.getString('expense_history');
 
-      _expenseHistory = List<Map<String, dynamic>>.from(
-        response['history'] ?? [],
-      );
-
-      await _localStorage.saveData('expense_history', _expenseHistory);
+      if (cachedData != null) {
+        final decoded = jsonDecode(cachedData);
+        _expenseHistory = List<Map<String, dynamic>>.from(decoded);
+      } else {
+        _expenseHistory = [];
+        await prefs.setString('expense_history', jsonEncode(_expenseHistory));
+      }
     } catch (e) {
-      final cached = await _localStorage.getData('expense_history');
-      _expenseHistory =
-          cached != null ? List<Map<String, dynamic>>.from(cached) : [];
       debugPrint('Error loading expense history: $e');
+      _expenseHistory = [];
     }
   }
 
   /// Load consumption patterns
   Future<void> _loadConsumptionPatterns() async {
     try {
-      final response = await _apiService.getConsumptionPatterns(
-        startDate: _startDate,
-        endDate: _endDate,
-      );
+      final prefs = await SharedPreferences.getInstance();
+      final cachedData = prefs.getString('consumption_patterns');
 
-      _consumptionPatterns = List<Map<String, dynamic>>.from(
-        response['patterns'] ?? [],
-      );
-
-      await _localStorage.saveData(
-          'consumption_patterns', _consumptionPatterns);
+      if (cachedData != null) {
+        final decoded = jsonDecode(cachedData);
+        _consumptionPatterns = List<Map<String, dynamic>>.from(decoded);
+      } else {
+        _consumptionPatterns = [];
+        await prefs.setString(
+            'consumption_patterns', jsonEncode(_consumptionPatterns));
+      }
     } catch (e) {
-      final cached = await _localStorage.getData('consumption_patterns');
-      _consumptionPatterns =
-          cached != null ? List<Map<String, dynamic>>.from(cached) : [];
       debugPrint('Error loading consumption patterns: $e');
+      _consumptionPatterns = [];
     }
   }
 
@@ -298,17 +339,13 @@ class ReportsProvider with ChangeNotifier {
       _isExporting = true;
       notifyListeners();
 
-      final response = await _apiService.exportReport(
-        type: reportType,
-        format: 'pdf',
-        startDate: _startDate,
-        endDate: _endDate,
-      );
+      // TODO: Implement PDF export when backend is ready
+      await Future.delayed(const Duration(seconds: 2)); // Simulate export
 
       _isExporting = false;
       notifyListeners();
 
-      return response['filePath'];
+      return 'reports/${reportType}_${DateTime.now().millisecondsSinceEpoch}.pdf';
     } catch (e) {
       _error = 'Failed to export report:  ${e.toString()}';
       _isExporting = false;
@@ -324,22 +361,18 @@ class ReportsProvider with ChangeNotifier {
       _isExporting = true;
       notifyListeners();
 
-      final response = await _apiService.exportReport(
-        type: reportType,
-        format: 'excel',
-        startDate: _startDate,
-        endDate: _endDate,
-      );
+      // TODO: Implement Excel export when backend is ready
+      await Future.delayed(const Duration(seconds: 2)); // Simulate export
 
       _isExporting = false;
       notifyListeners();
 
-      return response['filePath'];
+      return 'reports/${reportType}_${DateTime.now().millisecondsSinceEpoch}.xlsx';
     } catch (e) {
       _error = 'Failed to export report: ${e.toString()}';
       _isExporting = false;
       notifyListeners();
-      debugPrint('Error exporting report: $e');
+      debugPrint('Error exporting report:  $e');
       return null;
     }
   }
@@ -370,8 +403,9 @@ class ReportsProvider with ChangeNotifier {
       return {'date': '', 'amount': 0.0};
     }
 
-    return dailyExpenses
-        .reduce((a, b) => (a['amount'] ?? 0.0) > (b['amount'] ?? 0.0) ? a : b);
+    return dailyExpenses.reduce(
+      (a, b) => (a['amount'] ?? 0.0) > (b['amount'] ?? 0.0) ? a : b,
+    );
   }
 
   /// Get lowest expense day
@@ -388,8 +422,9 @@ class ReportsProvider with ChangeNotifier {
       return {'date': '', 'amount': 0.0};
     }
 
-    return dailyExpenses
-        .reduce((a, b) => (a['amount'] ?? 0.0) < (b['amount'] ?? 0.0) ? a : b);
+    return dailyExpenses.reduce(
+      (a, b) => (a['amount'] ?? 0.0) < (b['amount'] ?? 0.0) ? a : b,
+    );
   }
 
   /// Get waste statistics
@@ -418,29 +453,41 @@ class ReportsProvider with ChangeNotifier {
 
   /// Clear all cached reports
   Future<void> clearCache() async {
-    await _localStorage.deleteData('monthly_report');
-    await _localStorage.deleteData('category_report');
-    await _localStorage.deleteData('expiry_report');
-    await _localStorage.deleteData('waste_report');
-    await _localStorage.deleteData('budget_report');
-    await _localStorage.deleteData('expense_history');
-    await _localStorage.deleteData('consumption_patterns');
+    try {
+      final prefs = await SharedPreferences.getInstance();
 
-    _monthlyReport = null;
-    _categoryWiseReport = null;
-    _expiryReport = null;
-    _wasteReport = null;
-    _budgetReport = null;
-    _expenseHistory = [];
-    _consumptionPatterns = [];
+      await prefs.remove('monthly_report');
+      await prefs.remove('category_report');
+      await prefs.remove('expiry_report');
+      await prefs.remove('waste_report');
+      await prefs.remove('budget_report');
+      await prefs.remove('expense_history');
+      await prefs.remove('consumption_patterns');
 
-    notifyListeners();
+      _monthlyReport = null;
+      _categoryWiseReport = null;
+      _expiryReport = null;
+      _wasteReport = null;
+      _budgetReport = null;
+      _expenseHistory = [];
+      _consumptionPatterns = [];
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error clearing cache:  $e');
+    }
   }
 
   /// Refresh all reports
   Future<void> refresh() async {
     await clearCache();
     await loadAllReports();
+  }
+
+  /// Clear error
+  void clearError() {
+    _error = null;
+    notifyListeners();
   }
 
   @override

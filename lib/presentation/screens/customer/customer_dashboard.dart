@@ -3,6 +3,7 @@ import 'grocery_list_screen.dart';
 import 'expiry_tracking_screen.dart';
 import 'customer_profile_screen.dart';
 import '../common/notifications_screen.dart';
+import '../customer/add_edit_grocery_screen.dart';
 
 /// Customer Dashboard - Main navigation hub for customer role
 /// Features: Quick stats, navigation cards, recent items

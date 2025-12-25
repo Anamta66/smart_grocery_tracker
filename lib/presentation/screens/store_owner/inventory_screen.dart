@@ -2,10 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../domain/entities/inventory_item.dart';
 import '../../providers/inventory_provider.dart';
 import '../../widgets/inventory_item_card.dart';
 import 'add_edit_inventory_screen.dart';
+import '../../../data/models/grocery_item_model.dart';
 
 /// Inventory Screen for Store Owners
 /// Displays all inventory items with stock tracking and management
@@ -26,7 +26,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     super.initState();
     // Load inventory on screen init
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<InventoryProvider>().loadInventory();
+      context.read<InventoryProvider>().fetchInventory();
     });
   }
 
@@ -56,7 +56,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
-              context.read<InventoryProvider>().loadInventory();
+              context.read<InventoryProvider>().fetchInventory();
             },
           ),
         ],
@@ -77,7 +77,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                if (provider.error != null) {
+                if (provider.errorMessage != null) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -89,13 +89,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          provider.error!,
+                          provider.errorMessage!,
                           style: theme.textTheme.bodyLarge,
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 16),
                         ElevatedButton.icon(
-                          onPressed: () => provider.loadInventory(),
+                          onPressed: () => provider.fetchInventory(),
                           icon: const Icon(Icons.refresh),
                           label: const Text('Retry'),
                         ),
@@ -116,7 +116,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         Icon(
                           Icons.inventory_2_outlined,
                           size: 64,
-                          color: theme.colorScheme.onSurface.withOpacity(0.3),
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.3),
                         ),
                         const SizedBox(height: 16),
                         Text(
@@ -124,14 +125,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
                               ? 'No low stock items'
                               : 'No inventory items found',
                           style: theme.textTheme.titleMedium?.copyWith(
-                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.6),
                           ),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           'Tap + to add your first item',
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurface.withOpacity(0.5),
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.5),
                           ),
                         ),
                       ],
@@ -140,7 +143,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 }
 
                 return RefreshIndicator(
-                  onRefresh: () => provider.loadInventory(),
+                  onRefresh: () => provider.fetchInventory(),
                   child: ListView.separated(
                     padding: const EdgeInsets.all(16),
                     itemCount: filteredItems.length,
@@ -179,7 +182,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
         color: theme.colorScheme.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -204,8 +207,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 borderSide: BorderSide.none,
               ),
               filled: true,
-              fillColor:
-                  theme.colorScheme.surfaceContainerHighest.withOpacity(0.3),
+              fillColor: theme.colorScheme.surfaceContainerHighest
+                  .withValues(alpha: 0.3),
             ),
           ),
           const SizedBox(height: 12),
@@ -213,7 +216,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
           // Category Filter
           Consumer<InventoryProvider>(
             builder: (context, provider, child) {
-              final categories = ['All', ...provider.categories];
+              // Extract unique categories from inventory items
+              final categorySet = <String>{};
+              for (var item in provider.inventoryItems) {
+                if (item.categoryId != null && item.categoryId!.isNotEmpty) {
+                  categorySet.add(item.categoryId!);
+                }
+              }
+              final categories = ['All', ...categorySet.toList()];
 
               return SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -230,11 +240,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             _selectedCategory = category;
                           });
                         },
-                        backgroundColor: theme.colorScheme.surface.withOpacity(
-                          0.5,
+                        backgroundColor: theme.colorScheme.surface.withValues(
+                          alpha: 0.5,
                         ),
-                        selectedColor:
-                            theme.colorScheme.primaryContainer.withOpacity(0.5),
+                        selectedColor: theme.colorScheme.primaryContainer
+                            .withValues(alpha: 0.5),
                         checkmarkColor: theme.colorScheme.primary,
                       ),
                     );
@@ -253,7 +263,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
     return Consumer<InventoryProvider>(
       builder: (context, provider, child) {
         final theme = Theme.of(context);
-        final stats = provider.inventoryStats;
+
+        // Calculate stats from inventory items
+        final totalItems = provider.inventoryItems.length;
+        final lowStockItems = provider.getLowStockItems().length;
+        final totalValue = provider.getTotalInventoryValue();
 
         return Container(
           margin: const EdgeInsets.all(16),
@@ -261,8 +275,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                theme.colorScheme.primaryContainer.withOpacity(0.3),
-                theme.colorScheme.secondaryContainer.withOpacity(0.3),
+                theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+                theme.colorScheme.secondaryContainer.withValues(alpha: 0.3),
               ],
             ),
             borderRadius: BorderRadius.circular(16),
@@ -273,19 +287,19 @@ class _InventoryScreenState extends State<InventoryScreen> {
               _buildStatItem(
                 icon: Icons.inventory_2,
                 label: 'Total Items',
-                value: stats.totalItems.toString(),
+                value: totalItems.toString(),
                 color: theme.colorScheme.primary,
               ),
               _buildStatItem(
                 icon: Icons.warning_amber_rounded,
                 label: 'Low Stock',
-                value: stats.lowStockItems.toString(),
+                value: lowStockItems.toString(),
                 color: theme.colorScheme.error,
               ),
               _buildStatItem(
-                icon: Icons.attach_money,
-                label: 'Total Value',
-                value: '\$${stats.totalValue.toStringAsFixed(0)}',
+                icon: Icons.shopping_bag,
+                label: 'Items',
+                value: totalValue.toStringAsFixed(0),
                 color: Colors.green,
               ),
             ],
@@ -319,20 +333,18 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   /// Filter items based on search and category
-  List<InventoryItem> _getFilteredItems(List<InventoryItem> items) {
+  List<GroceryItemModel> _getFilteredItems(List<GroceryItemModel> items) {
     return items.where((item) {
       // Search filter
       final matchesSearch = _searchQuery.isEmpty ||
-          item.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          item.barcode.contains(_searchQuery);
+          item.name.toLowerCase().contains(_searchQuery.toLowerCase());
 
       // Category filter
       final matchesCategory =
-          _selectedCategory == 'All' || item.category == _selectedCategory;
+          _selectedCategory == 'All' || item.categoryId == _selectedCategory;
 
-      // Low stock filter
-      final matchesLowStock =
-          !_showLowStockOnly || item.quantity <= item.lowStockThreshold;
+      // Low stock filter (quantity < 5)
+      final matchesLowStock = !_showLowStockOnly || item.quantity < 5;
 
       return matchesSearch && matchesCategory && matchesLowStock;
     }).toList();
@@ -347,7 +359,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   /// Navigate to Edit Item Screen
-  void _navigateToEditItem(InventoryItem item) {
+  void _navigateToEditItem(GroceryItemModel item) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -357,8 +369,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   /// Update stock quantity quickly
-  void _updateStock(InventoryItem item, int newQuantity) {
-    context.read<InventoryProvider>().updateItemQuantity(item.id, newQuantity);
+  void _updateStock(GroceryItemModel item, int newQuantity) {
+    context.read<InventoryProvider>().updateStock(item.id, newQuantity);
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -370,7 +382,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   /// Confirm deletion
-  void _confirmDelete(InventoryItem item) {
+  void _confirmDelete(GroceryItemModel item) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -382,16 +394,31 @@ class _InventoryScreenState extends State<InventoryScreen> {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () {
-              context.read<InventoryProvider>().deleteItem(item.id);
-              Navigator.pop(context);
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('${item.name} deleted'),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
+            onPressed: () async {
+              // Delete using GroceryService
+              try {
+                await context.read<InventoryProvider>().deleteItem(item.id);
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('${item.name} deleted'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to delete:  $e'),
+                      behavior: SnackBarBehavior.floating,
+                      backgroundColor: Theme.of(context).colorScheme.error,
+                    ),
+                  );
+                }
+              }
             },
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,

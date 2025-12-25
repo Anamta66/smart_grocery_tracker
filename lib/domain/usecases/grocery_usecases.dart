@@ -1,7 +1,10 @@
 // lib/domain/usecases/grocery_usecases.dart
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:smart_grocery_tracker/data/models/grocery_item_model.dart';
+
 import '../entities/grocery_item.dart';
-import '../repositories/grocery_repository.dart';
+import '../../data/repositories/grocery_repository.dart';
 
 /// UseCase: Get All Grocery Items
 class GetGroceryItemsUseCase {
@@ -9,8 +12,8 @@ class GetGroceryItemsUseCase {
 
   GetGroceryItemsUseCase(this.repository);
 
-  Future<List<GroceryItem>> call() async {
-    return await repository.getGroceryItems();
+  Future<List<GroceryItemModel>> call(String id) async {
+    return await repository.getGroceryItems(id);
   }
 }
 
@@ -20,7 +23,7 @@ class AddGroceryItemUseCase {
 
   AddGroceryItemUseCase(this.repository);
 
-  Future<void> call(GroceryItem item) async {
+  Future<void> call(String userId, GroceryItemModel item) async {
     // Validate item
     if (item.name.isEmpty) {
       throw Exception('Item name cannot be empty');
@@ -30,7 +33,7 @@ class AddGroceryItemUseCase {
       throw Exception('Quantity must be greater than zero');
     }
 
-    return await repository.addGroceryItem(item);
+    await repository.addGroceryItem(userId: userId, item: item);
   }
 }
 
@@ -40,7 +43,7 @@ class UpdateGroceryItemUseCase {
 
   UpdateGroceryItemUseCase(this.repository);
 
-  Future<void> call(GroceryItem item) async {
+  Future<void> call(String userId, GroceryItemModel item) async {
     // Validate item
     if (item.id.isEmpty) {
       throw Exception('Item ID cannot be empty');
@@ -54,7 +57,7 @@ class UpdateGroceryItemUseCase {
       throw Exception('Quantity cannot be negative');
     }
 
-    return await repository.updateGroceryItem(item);
+    await repository.updateGroceryItem(userId: userId, item: item);
   }
 }
 
@@ -64,12 +67,12 @@ class DeleteGroceryItemUseCase {
 
   DeleteGroceryItemUseCase(this.repository);
 
-  Future<void> call(String itemId) async {
+  Future<void> call(String userId, String itemId) async {
     if (itemId.isEmpty) {
       throw Exception('Item ID cannot be empty');
     }
 
-    return await repository.deleteGroceryItem(itemId);
+    return await repository.deleteGroceryItem(userId: userId, itemId: itemId);
   }
 }
 
@@ -79,12 +82,12 @@ class SearchGroceryItemsUseCase {
 
   SearchGroceryItemsUseCase(this.repository);
 
-  Future<List<GroceryItem>> call(String query) async {
+  Future<List<GroceryItemModel>> call(String userId, String query) async {
     if (query.isEmpty) {
-      return await repository.getGroceryItems();
+      return await repository.getGroceryItems(userId);
     }
 
-    return await repository.searchGroceryItems(query);
+    return await repository.searchItems(userId: userId, query: query);
   }
 }
 
@@ -94,12 +97,13 @@ class FilterItemsByCategoryUseCase {
 
   FilterItemsByCategoryUseCase(this.repository);
 
-  Future<List<GroceryItem>> call(String category) async {
+  Future<List<GroceryItemModel>> call(String userId, String category) async {
     if (category.isEmpty) {
-      return await repository.getGroceryItems();
+      return await repository.getGroceryItems(userId);
     }
 
-    return await repository.filterByCategory(category);
+    return await repository.getItemsByCategory(
+        userId: userId, categoryId: category);
   }
 }
 
@@ -109,7 +113,9 @@ class GetExpiringItemsUseCase {
 
   GetExpiringItemsUseCase(this.repository);
 
-  Future<List<GroceryItem>> call({int daysThreshold = 7}) async {
-    return await repository.getExpiringItems(daysThreshold);
+  Future<List<GroceryItemModel>> call(
+      {required String userId, int daysThreshold = 7}) async {
+    return await repository.getExpiringItems(
+        userId: userId, daysAhead: daysThreshold);
   }
 }

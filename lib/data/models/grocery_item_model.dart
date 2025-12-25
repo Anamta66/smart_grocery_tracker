@@ -122,6 +122,7 @@ class GroceryItemModel {
   /// Quantity of the item needed
   final double quantity;
   final int minQuantity;
+  final double price;
 
   /// Unit of measurement
   final GroceryUnit unit;
@@ -190,6 +191,7 @@ class GroceryItemModel {
     this.description,
     required this.quantity,
     required this.minQuantity,
+    this.price = 0.0,
     this.unit = GroceryUnit.pieces,
     required this.categoryId,
     this.categoryName,
@@ -276,6 +278,7 @@ class GroceryItemModel {
     bool? isRecurring,
     int? recurringIntervalDays,
     String? notes,
+    double? price,
   }) {
     return GroceryItemModel(
       id: id ?? this.id,
@@ -304,6 +307,7 @@ class GroceryItemModel {
       recurringIntervalDays:
           recurringIntervalDays ?? this.recurringIntervalDays,
       notes: notes ?? this.notes,
+      price: price ?? this.price,
     );
   }
 
@@ -334,6 +338,7 @@ class GroceryItemModel {
       'isRecurring': isRecurring,
       'recurringIntervalDays': recurringIntervalDays,
       'notes': notes,
+      'price': price,
     };
   }
 
@@ -375,6 +380,7 @@ class GroceryItemModel {
       isRecurring: json['isRecurring'] as bool? ?? false,
       recurringIntervalDays: json['recurringIntervalDays'] as int?,
       notes: json['notes'] as String?,
+      price: (json['price'] ?? 0).toDouble(),
     );
   }
 

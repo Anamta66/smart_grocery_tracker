@@ -22,7 +22,7 @@ class CategoryProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      _categories = await _categoryService.getAllCategories();
+      _categories = await _categoryService.getCategories();
     } catch (e) {
       _errorMessage = e.toString();
     } finally {
@@ -68,7 +68,7 @@ class CategoryProvider with ChangeNotifier {
 
     try {
       final updatedCategory = await _categoryService.updateCategory(
-        categoryId: categoryId,
+        id: categoryId,
         name: name,
         icon: icon,
         color: color?.value.toRadixString(16),

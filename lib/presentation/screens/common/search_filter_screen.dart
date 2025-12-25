@@ -35,7 +35,7 @@ class _SearchFilterScreenState extends State<SearchFilterScreen> {
               color: Theme.of(context).colorScheme.surface,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 2),
                 ),
@@ -59,7 +59,7 @@ class _SearchFilterScreenState extends State<SearchFilterScreen> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        initialValue: _selectedCategory,
+                        value: _selectedCategory,
                         decoration: const InputDecoration(
                           labelText: 'Category',
                           border: OutlineInputBorder(),
@@ -112,8 +112,9 @@ class _SearchFilterScreenState extends State<SearchFilterScreen> {
                   final matchesCategory = _selectedCategory == 'All' ||
                       item.categoryId == _selectedCategory;
 
+                  // FIX 1: Add null check for expiryDate
                   final matchesExpiry = !_showExpiredOnly ||
-                      item.expiryDate.isBefore(DateTime.now());
+                      (item.expiryDate?.isBefore(DateTime.now()) ?? false);
 
                   return matchesSearch && matchesCategory && matchesExpiry;
                 }).toList();
@@ -145,7 +146,60 @@ class _SearchFilterScreenState extends State<SearchFilterScreen> {
                   padding: const EdgeInsets.all(16),
                   itemCount: filteredItems.length,
                   itemBuilder: (context, index) {
-                    return GroceryItemCard(item: filteredItems[index]);
+                    final item = filteredItems[index];
+
+                    // FIX 2: Add required callbacks and pass GroceryItemModel
+                    return GroceryItemCard(
+                      item: item,
+                      onTap: () {
+                        // Navigate to item details
+                        // Navigator.push(context, MaterialPageRoute(
+                        //   builder: (context) => GroceryDetailScreen(item: item),
+                        // ));
+                      },
+                      onEdit: () {
+                        // Navigate to edit screen
+                        // Navigator.push(context, MaterialPageRoute(
+                        //   builder: (context) => AddEditGroceryScreen(item: item),
+                        // ));
+                      },
+                      onDelete: () async {
+                        // Show confirmation dialog and delete
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Delete Item'),
+                            content: Text('Delete "${item.name}"?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text('Cancel'),
+                              ),
+                              FilledButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor:
+                                      Theme.of(context).colorScheme.error,
+                                ),
+                                child: const Text('Delete'),
+                              ),
+                            ],
+                          ),
+                        );
+
+                        if (confirm == true && context.mounted) {
+                          await provider.deleteGroceryItem(item.id);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('${item.name} deleted'),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                    );
                   },
                 );
               },

@@ -1,14 +1,16 @@
+import 'package:smart_grocery_tracker/data/models/grocery_item_model.dart';
+
 import 'api_service.dart';
 import '../../domain/entities/grocery_item.dart';
 
 /// Service for managing grocery items
 class GroceryService {
   /// Fetch all grocery items
-  static Future<List<GroceryItem>> getAllItems() async {
+  static Future<List<GroceryItemModel>> getAllItems() async {
     try {
       final response = await ApiService.get('groceries');
       if (response is List) {
-        return response.map((json) => GroceryItem.fromJson(json)).toList();
+        return response.map((json) => GroceryItemModel.fromJson(json)).toList();
       }
       return [];
     } catch (e) {
