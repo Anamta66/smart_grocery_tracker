@@ -4,9 +4,10 @@
 /// Implements error handling and offline fallback mechanisms
 
 import 'dart:convert';
-import 'package:http/http.dart' as http;
-import '../../core/constants/app_constants.dart';
+import 'package:flutter/foundation.dart';
 import '../../data/models/category_model.dart';
+import 'api_service.dart';
+import 'api_config.dart';
 import 'local_storage_service.dart';
 
 class CategoryService {
@@ -15,9 +16,6 @@ class CategoryService {
   factory CategoryService() => _instance;
   CategoryService._internal();
 
-  // HTTP client for API calls
-  final http.Client _client = http.Client();
-
   // Local storage service for caching
   final LocalStorageService _storage = LocalStorageService();
 
@@ -25,15 +23,12 @@ class CategoryService {
   List<CategoryModel>? _cachedCategories;
   DateTime? _lastCacheTime;
 
-  /// Gets the base URL based on platform (emulator/device)
-  String get _baseUrl {
-    // You can add platform detection logic here
-    // For now, using the default base URL
-    return AppConstants.baseUrl;
-  }
+  // Cache validity duration (in hours)
+  static const int _cacheValidityHours = 1;
 
-  /// Gets the full endpoint URL for categories
-  String get _categoriesUrl => '$_baseUrl${AppConstants.categoryEndpoint}';
+  // Cache keys
+  static const String _categoriesCacheKey = 'categories_cache';
+  static const String _categoriesCacheTimeKey = 'categories_cache_time';
 
   // ========================================
   // 📥 FETCH CATEGORIES
@@ -49,27 +44,23 @@ class CategoryService {
     try {
       // Check if we should use cache
       if (!forceRefresh && _isCacheValid()) {
-        if (AppConstants.enableDebugLogs) {
+        if (kDebugMode) {
           print('📦 Using cached categories');
         }
         return _cachedCategories!;
       }
 
       // Fetch from API
-      if (AppConstants.enableDebugLogs) {
+      if (kDebugMode) {
         print('🌐 Fetching categories from API.. .');
       }
 
-      final response = await _client
-          .get(
-            Uri.parse(_categoriesUrl),
-            headers: await _getHeaders(),
-          )
-          .timeout(AppConstants.connectionTimeout);
+      final response = await ApiService.get(ApiConfig.categories);
 
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonResponse = json.decode(response.body);
-        final List<dynamic> categoriesJson = jsonResponse['data'] ?? [];
+      if (response['success'] == true && response['data'] != null) {
+        final List<dynamic> categoriesJson = response['data'] is List
+            ? response['data']
+            : (response['data']['categories'] ?? []);
 
         final List<CategoryModel> categories =
             categoriesJson.map((json) => CategoryModel.fromJson(json)).toList();
@@ -77,25 +68,23 @@ class CategoryService {
         // Update cache
         await _updateCache(categories);
 
-        if (AppConstants.enableDebugLogs) {
+        if (kDebugMode) {
           print('✅ Successfully fetched ${categories.length} categories');
         }
 
         return categories;
-      } else if (response.statusCode == 401) {
-        throw Exception(AppConstants.errorUnauthorized);
       } else {
-        throw Exception('Failed to load categories: ${response.statusCode}');
+        throw Exception('Failed to load categories');
       }
     } catch (e) {
-      if (AppConstants.enableDebugLogs) {
+      if (kDebugMode) {
         print('❌ Error fetching categories: $e');
       }
 
       // Try to return cached data if available
       final cachedData = await _getCachedCategories();
       if (cachedData != null && cachedData.isNotEmpty) {
-        if (AppConstants.enableDebugLogs) {
+        if (kDebugMode) {
           print('📦 Returning stale cached categories due to error');
         }
         return cachedData;
@@ -109,37 +98,32 @@ class CategoryService {
   /// Fetches a single category by ID
   Future<CategoryModel?> getCategoryById(String id) async {
     try {
-      if (AppConstants.enableDebugLogs) {
+      if (kDebugMode) {
         print('🌐 Fetching category with ID: $id');
       }
 
-      final response = await _client
-          .get(
-            Uri.parse('$_categoriesUrl/$id'),
-            headers: await _getHeaders(),
-          )
-          .timeout(AppConstants.connectionTimeout);
+      final response = await ApiService.get('${ApiConfig.categories}/$id');
 
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonResponse = json.decode(response.body);
-        final categoryJson = jsonResponse['data'];
-
-        if (categoryJson != null) {
-          return CategoryModel.fromJson(categoryJson);
-        }
-        return null;
-      } else if (response.statusCode == 404) {
-        return null;
-      } else if (response.statusCode == 401) {
-        throw Exception(AppConstants.errorUnauthorized);
-      } else {
-        throw Exception('Failed to load category: ${response.statusCode}');
+      if (response['success'] == true && response['data'] != null) {
+        return CategoryModel.fromJson(response['data']);
       }
+
+      return null;
     } catch (e) {
-      if (AppConstants.enableDebugLogs) {
-        print('❌ Error fetching category: $e');
+      if (kDebugMode) {
+        print('❌ Error fetching category:  $e');
       }
-      rethrow;
+
+      // Try to find in cache
+      if (_cachedCategories != null) {
+        try {
+          return _cachedCategories!.firstWhere((c) => c.id == id);
+        } catch (_) {
+          return null;
+        }
+      }
+
+      return null;
     }
   }
 
@@ -162,7 +146,7 @@ class CategoryService {
     String? color,
   }) async {
     try {
-      if (AppConstants.enableDebugLogs) {
+      if (kDebugMode) {
         print('🌐 Creating new category: $name');
       }
 
@@ -174,38 +158,28 @@ class CategoryService {
         if (color != null && color.isNotEmpty) 'color': color,
       };
 
-      final response = await _client
-          .post(
-            Uri.parse(_categoriesUrl),
-            headers: await _getHeaders(),
-            body: json.encode(categoryData),
-          )
-          .timeout(AppConstants.connectionTimeout);
+      final response = await ApiService.post(
+        ApiConfig.categories,
+        categoryData,
+      );
 
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        final Map<String, dynamic> jsonResponse = json.decode(response.body);
-        final categoryJson = jsonResponse['data'];
-
-        final CategoryModel newCategory = CategoryModel.fromJson(categoryJson);
+      if (response['success'] == true && response['data'] != null) {
+        final CategoryModel newCategory =
+            CategoryModel.fromJson(response['data']);
 
         // Invalidate cache to force refresh
         await _invalidateCache();
 
-        if (AppConstants.enableDebugLogs) {
-          print('✅ Category created successfully: ${newCategory.id}');
+        if (kDebugMode) {
+          print('✅ Category created successfully:  ${newCategory.id}');
         }
 
         return newCategory;
-      } else if (response.statusCode == 401) {
-        throw Exception(AppConstants.errorUnauthorized);
-      } else if (response.statusCode == 400) {
-        final Map<String, dynamic> errorResponse = json.decode(response.body);
-        throw Exception(errorResponse['message'] ?? 'Invalid category data');
       } else {
-        throw Exception('Failed to create category: ${response.statusCode}');
+        throw Exception(response['message'] ?? 'Failed to create category');
       }
     } catch (e) {
-      if (AppConstants.enableDebugLogs) {
+      if (kDebugMode) {
         print('❌ Error creating category: $e');
       }
       rethrow;
@@ -233,7 +207,7 @@ class CategoryService {
     String? color,
   }) async {
     try {
-      if (AppConstants.enableDebugLogs) {
+      if (kDebugMode) {
         print('🌐 Updating category: $id');
       }
 
@@ -248,39 +222,29 @@ class CategoryService {
         throw Exception('No data provided for update');
       }
 
-      final response = await _client
-          .put(
-            Uri.parse('$_categoriesUrl/$id'),
-            headers: await _getHeaders(),
-            body: json.encode(updateData),
-          )
-          .timeout(AppConstants.connectionTimeout);
+      final response = await ApiService.put(
+        '${ApiConfig.categories}/$id',
+        updateData,
+      );
 
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonResponse = json.decode(response.body);
-        final categoryJson = jsonResponse['data'];
-
+      if (response['success'] == true && response['data'] != null) {
         final CategoryModel updatedCategory =
-            CategoryModel.fromJson(categoryJson);
+            CategoryModel.fromJson(response['data']);
 
         // Invalidate cache
         await _invalidateCache();
 
-        if (AppConstants.enableDebugLogs) {
+        if (kDebugMode) {
           print('✅ Category updated successfully');
         }
 
         return updatedCategory;
-      } else if (response.statusCode == 401) {
-        throw Exception(AppConstants.errorUnauthorized);
-      } else if (response.statusCode == 404) {
-        throw Exception('Category not found');
       } else {
-        throw Exception('Failed to update category: ${response.statusCode}');
+        throw Exception(response['message'] ?? 'Failed to update category');
       }
     } catch (e) {
-      if (AppConstants.enableDebugLogs) {
-        print('❌ Error updating category: $e');
+      if (kDebugMode) {
+        print('❌ Error updating category:  $e');
       }
       rethrow;
     }
@@ -297,37 +261,26 @@ class CategoryService {
   /// Returns true if deletion was successful
   Future<bool> deleteCategory(String id) async {
     try {
-      if (AppConstants.enableDebugLogs) {
+      if (kDebugMode) {
         print('🌐 Deleting category:  $id');
       }
 
-      final response = await _client
-          .delete(
-            Uri.parse('$_categoriesUrl/$id'),
-            headers: await _getHeaders(),
-          )
-          .timeout(AppConstants.connectionTimeout);
+      final response = await ApiService.delete('${ApiConfig.categories}/$id');
 
-      if (response.statusCode == 200 || response.statusCode == 204) {
+      if (response['success'] == true) {
         // Invalidate cache
         await _invalidateCache();
 
-        if (AppConstants.enableDebugLogs) {
+        if (kDebugMode) {
           print('✅ Category deleted successfully');
         }
 
         return true;
-      } else if (response.statusCode == 401) {
-        throw Exception(AppConstants.errorUnauthorized);
-      } else if (response.statusCode == 404) {
-        throw Exception('Category not found');
-      } else if (response.statusCode == 409) {
-        throw Exception('Cannot delete category: Items exist in this category');
       } else {
-        throw Exception('Failed to delete category: ${response.statusCode}');
+        throw Exception(response['message'] ?? 'Failed to delete category');
       }
     } catch (e) {
-      if (AppConstants.enableDebugLogs) {
+      if (kDebugMode) {
         print('❌ Error deleting category: $e');
       }
       rethrow;
@@ -345,6 +298,25 @@ class CategoryService {
     }
 
     try {
+      // Try API search first
+      try {
+        final response = await ApiService.get(
+          '${ApiConfig.search}/categories',
+          params: {'q': query.trim()},
+        );
+
+        if (response['success'] == true && response['data'] is List) {
+          return (response['data'] as List)
+              .map((json) => CategoryModel.fromJson(json))
+              .toList();
+        }
+      } catch (apiError) {
+        if (kDebugMode) {
+          print('⚠️ API search failed, using local search:  $apiError');
+        }
+      }
+
+      // Fallback to local search
       final categories = await getCategories();
       final searchQuery = query.toLowerCase().trim();
 
@@ -354,7 +326,7 @@ class CategoryService {
                 false);
       }).toList();
     } catch (e) {
-      if (AppConstants.enableDebugLogs) {
+      if (kDebugMode) {
         print('❌ Error searching categories: $e');
       }
       rethrow;
@@ -362,19 +334,32 @@ class CategoryService {
   }
 
   // ========================================
-  // 🔧 HELPER METHODS
+  // 📊 STATISTICS
   // ========================================
 
-  /// Gets HTTP headers with authentication token
-  Future<Map<String, String>> _getHeaders() async {
-    final token = await _storage.getAccessToken();
+  /// Get category with item count
+  Future<Map<String, dynamic>> getCategoryStats(String categoryId) async {
+    try {
+      final response = await ApiService.get(
+        '${ApiConfig.categories}/$categoryId/stats',
+      );
 
-    return {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      if (token != null) 'Authorization': 'Bearer $token',
-    };
+      if (response['success'] == true && response['data'] != null) {
+        return response['data'];
+      }
+
+      return {};
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error fetching category stats:  $e');
+      }
+      return {};
+    }
   }
+
+  // ========================================
+  // 🔧 HELPER METHODS
+  // ========================================
 
   /// Checks if cached data is still valid
   bool _isCacheValid() {
@@ -383,9 +368,7 @@ class CategoryService {
     }
 
     final cacheAge = DateTime.now().difference(_lastCacheTime!);
-    final validityDuration = Duration(
-      hours: AppConstants.categoryCacheValidityHours,
-    );
+    final validityDuration = Duration(hours: _cacheValidityHours);
 
     return cacheAge < validityDuration;
   }
@@ -399,15 +382,15 @@ class CategoryService {
     try {
       final categoriesJson = categories.map((c) => c.toJson()).toList();
       await _storage.saveString(
-        AppConstants.keyCategoriesCache,
+        _categoriesCacheKey,
         json.encode(categoriesJson),
       );
       await _storage.saveString(
-        AppConstants.keyCategoriesCacheTime,
+        _categoriesCacheTimeKey,
         _lastCacheTime!.toIso8601String(),
       );
     } catch (e) {
-      if (AppConstants.enableDebugLogs) {
+      if (kDebugMode) {
         print('⚠️ Failed to save categories to cache: $e');
       }
     }
@@ -416,8 +399,7 @@ class CategoryService {
   /// Gets categories from persistent cache
   Future<List<CategoryModel>?> _getCachedCategories() async {
     try {
-      final cachedJson =
-          await _storage.getString(AppConstants.keyCategoriesCache);
+      final cachedJson = await _storage.getString(_categoriesCacheKey);
       if (cachedJson == null) return null;
 
       final List<dynamic> categoriesJson = json.decode(cachedJson);
@@ -425,7 +407,7 @@ class CategoryService {
           .map((json) => CategoryModel.fromJson(json))
           .toList();
     } catch (e) {
-      if (AppConstants.enableDebugLogs) {
+      if (kDebugMode) {
         print('⚠️ Failed to load cached categories: $e');
       }
       return null;
@@ -437,20 +419,20 @@ class CategoryService {
     _cachedCategories = null;
     _lastCacheTime = null;
 
-    await _storage.remove(AppConstants.keyCategoriesCache);
-    await _storage.remove(AppConstants.keyCategoriesCacheTime);
+    await _storage.remove(_categoriesCacheKey);
+    await _storage.remove(_categoriesCacheTimeKey);
   }
 
   /// Clears all cache
   Future<void> clearCache() async {
     await _invalidateCache();
-    if (AppConstants.enableDebugLogs) {
+    if (kDebugMode) {
       print('🗑️ Category cache cleared');
     }
   }
 
-  /// Disposes resources
-  void dispose() {
-    _client.close();
+  /// Refresh categories from server
+  Future<void> refresh() async {
+    await getCategories(forceRefresh: true);
   }
 }

@@ -56,7 +56,7 @@ router.post('/register', authLimiter, validateRegister, register);
  * @desc    Login user
  * @access  Public
  */
-router.post('/login', authLimiter, validateLogin, login);
+router.post('/signup', authLimiter, validateLogin, login);
 
 /**
  * @route   POST /api/v1/auth/forgot-password

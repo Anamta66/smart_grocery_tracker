@@ -1,11 +1,10 @@
 import 'package:flutter/foundation.dart';
 import '../../data/models/notification_model.dart';
 import '../../data/services/notification_service.dart';
+import '../../data/services/api_service.dart';
+import '../../data/services/api_config.dart';
 
 class NotificationProvider with ChangeNotifier {
-  // Use static methods from NotificationService
-  // No need for instance since all methods are static
-
   List<NotificationModel> _notifications = [];
   bool _isLoading = false;
   String? _errorMessage;
@@ -18,22 +17,40 @@ class NotificationProvider with ChangeNotifier {
       _notifications.where((n) => n.status == NotificationStatus.unread).length;
 
   /// Fetch all notifications
-  /// Since NotificationService doesn't have getAllNotifications,
-  /// we'll manage notifications locally
   Future<void> fetchNotifications() async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      // TODO: Fetch from Firebase/API when backend is ready
-      // For now, notifications are managed locally
-      // _notifications = await fetchFromBackend();
+      // Try to fetch from API
+      try {
+        final response = await ApiService.get(ApiConfig.notifications);
 
-      // Sort by timestamp (newest first)
-      _notifications = _notifications.sortByTime();
+        if (response['success'] == true && response['data'] is List) {
+          _notifications = (response['data'] as List)
+              .map((json) => NotificationModel.fromJson(json))
+              .toList();
+
+          // Sort by timestamp (newest first)
+          _notifications = _notifications.sortByTime();
+
+          if (kDebugMode) {
+            print('✅ Fetched ${_notifications.length} notifications from API');
+          }
+        }
+      } catch (apiError) {
+        if (kDebugMode) {
+          print('⚠️ API error fetching notifications: $apiError');
+        }
+        // Keep existing local notifications if API fails
+        _notifications = _notifications.sortByTime();
+      }
     } catch (e) {
       _errorMessage = e.toString();
+      if (kDebugMode) {
+        print('❌ Error fetching notifications: $e');
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -43,8 +60,9 @@ class NotificationProvider with ChangeNotifier {
   /// Add new notification
   Future<void> addNotification(NotificationModel notification) async {
     try {
-      // Add to local list
+      // Add to local list first (optimistic update)
       _notifications.insert(0, notification);
+      notifyListeners();
 
       // Show local notification
       await NotificationService.showNotification(
@@ -52,13 +70,41 @@ class NotificationProvider with ChangeNotifier {
         notification.message,
       );
 
-      // TODO: Save to Firebase/Backend when ready
-      // await saveToBackend(notification);
+      // Save to backend
+      try {
+        final response = await ApiService.post(
+          ApiConfig.notifications,
+          notification.toJson(),
+        );
+
+        if (response['success'] == true && response['data'] != null) {
+          // Update with server-generated data (ID, timestamps, etc.)
+          final savedNotification =
+              NotificationModel.fromJson(response['data']);
+          final index =
+              _notifications.indexWhere((n) => n.id == notification.id);
+          if (index != -1) {
+            _notifications[index] = savedNotification;
+          }
+
+          if (kDebugMode) {
+            print('✅ Notification saved to backend');
+          }
+        }
+      } catch (apiError) {
+        if (kDebugMode) {
+          print('⚠️ Failed to save notification to backend: $apiError');
+        }
+        // Keep local notification even if API fails
+      }
 
       notifyListeners();
     } catch (e) {
       _errorMessage = e.toString();
       notifyListeners();
+      if (kDebugMode) {
+        print('❌ Error adding notification: $e');
+      }
     }
   }
 
@@ -122,69 +168,139 @@ class NotificationProvider with ChangeNotifier {
     try {
       final index = _notifications.indexWhere((n) => n.id == notificationId);
       if (index != -1) {
-        // Update notification status
+        // Optimistic update
         _notifications[index] = _notifications[index].copyWith(
           status: NotificationStatus.read,
         );
-
-        // TODO: Update in Firebase/Backend
-        // await updateInBackend(notificationId, {'status': 'read'});
-
         notifyListeners();
+
+        // Update in backend
+        try {
+          await ApiService.put(
+            '${ApiConfig.notifications}/$notificationId',
+            {'status': 'read'},
+          );
+
+          if (kDebugMode) {
+            print('✅ Notification marked as read in backend');
+          }
+        } catch (apiError) {
+          if (kDebugMode) {
+            print(
+                '⚠️ Failed to update notification status in backend: $apiError');
+          }
+          // Keep local update even if API fails
+        }
       }
     } catch (e) {
       _errorMessage = e.toString();
       notifyListeners();
+      if (kDebugMode) {
+        print('❌ Error marking notification as read: $e');
+      }
     }
   }
 
   /// Mark all notifications as read
   Future<void> markAllAsRead() async {
     try {
-      // Update all notifications
+      // Optimistic update
       _notifications = _notifications.map((n) {
         return n.copyWith(status: NotificationStatus.read);
       }).toList();
-
-      // TODO:  Batch update in Firebase/Backend
-      // await batchUpdateInBackend();
-
       notifyListeners();
+
+      // Batch update in backend
+      try {
+        await ApiService.put(
+          '${ApiConfig.notifications}/mark-all-read',
+          {},
+        );
+
+        if (kDebugMode) {
+          print('✅ All notifications marked as read in backend');
+        }
+      } catch (apiError) {
+        if (kDebugMode) {
+          print('⚠️ Failed to mark all as read in backend: $apiError');
+        }
+        // Keep local update even if API fails
+      }
     } catch (e) {
       _errorMessage = e.toString();
       notifyListeners();
+      if (kDebugMode) {
+        print('❌ Error marking all as read: $e');
+      }
     }
   }
 
   /// Delete notification
   Future<void> deleteNotification(String notificationId) async {
     try {
-      // Remove from local list
+      // Optimistic delete
+      final deletedNotification =
+          _notifications.firstWhere((n) => n.id == notificationId);
       _notifications.removeWhere((n) => n.id == notificationId);
-
-      // TODO:  Delete from Firebase/Backend
-      // await deleteFromBackend(notificationId);
-
       notifyListeners();
+
+      // Delete from backend
+      try {
+        await ApiService.delete('${ApiConfig.notifications}/$notificationId');
+
+        if (kDebugMode) {
+          print('✅ Notification deleted from backend');
+        }
+      } catch (apiError) {
+        if (kDebugMode) {
+          print('⚠️ Failed to delete from backend: $apiError');
+        }
+        // Rollback if API fails
+        _notifications.insert(0, deletedNotification);
+        notifyListeners();
+        _errorMessage = 'Failed to delete notification';
+      }
     } catch (e) {
       _errorMessage = e.toString();
       notifyListeners();
+      if (kDebugMode) {
+        print('❌ Error deleting notification: $e');
+      }
     }
   }
 
   /// Clear all notifications
   Future<void> clearAll() async {
     try {
-      // Clear local list
+      // Backup for rollback
+      final backup = List<NotificationModel>.from(_notifications);
+
+      // Optimistic clear
       _notifications.clear();
-
-      // TODO:  Clear from Firebase/Backend
-      // await clearAllFromBackend();
-
       notifyListeners();
+
+      // Clear from backend
+      try {
+        await ApiService.delete('${ApiConfig.notifications}/clear-all');
+
+        if (kDebugMode) {
+          print('✅ All notifications cleared from backend');
+        }
+      } catch (apiError) {
+        if (kDebugMode) {
+          print('⚠️ Failed to clear from backend: $apiError');
+        }
+        // Rollback if API fails
+        _notifications = backup;
+        notifyListeners();
+        _errorMessage = 'Failed to clear notifications';
+      }
     } catch (e) {
       _errorMessage = e.toString();
       notifyListeners();
+      if (kDebugMode) {
+        print('❌ Error clearing notifications: $e');
+      }
     }
   }
 
@@ -193,17 +309,35 @@ class NotificationProvider with ChangeNotifier {
     try {
       final index = _notifications.indexWhere((n) => n.id == notificationId);
       if (index != -1) {
+        // Optimistic update
         _notifications[index] = _notifications[index].copyWith(
           status: NotificationStatus.archived,
         );
-
-        // TODO: Update in Firebase/Backend
-
         notifyListeners();
+
+        // Update in backend
+        try {
+          await ApiService.put(
+            '${ApiConfig.notifications}/$notificationId',
+            {'status': 'archived'},
+          );
+
+          if (kDebugMode) {
+            print('✅ Notification archived in backend');
+          }
+        } catch (apiError) {
+          if (kDebugMode) {
+            print('⚠️ Failed to archive in backend: $apiError');
+          }
+          // Keep local update even if API fails
+        }
       }
     } catch (e) {
       _errorMessage = e.toString();
       notifyListeners();
+      if (kDebugMode) {
+        print('❌ Error archiving notification:  $e');
+      }
     }
   }
 
@@ -276,16 +410,40 @@ class NotificationProvider with ChangeNotifier {
   /// Clear read notifications (cleanup)
   Future<void> clearReadNotifications() async {
     try {
+      // Backup for rollback
+      final toDelete = _notifications
+          .where((n) => n.status == NotificationStatus.read)
+          .toList();
+
+      // Optimistic delete
       _notifications.removeWhere(
         (n) => n.status == NotificationStatus.read,
       );
-
-      // TODO: Delete from Firebase/Backend
-
       notifyListeners();
+
+      // Delete from backend
+      try {
+        await ApiService.delete('${ApiConfig.notifications}/clear-read');
+
+        if (kDebugMode) {
+          print('✅ Read notifications cleared from backend');
+        }
+      } catch (apiError) {
+        if (kDebugMode) {
+          print(
+              '⚠️ Failed to clear read notifications from backend: $apiError');
+        }
+        // Rollback if API fails
+        _notifications.addAll(toDelete);
+        _notifications = _notifications.sortByTime();
+        notifyListeners();
+      }
     } catch (e) {
       _errorMessage = e.toString();
       notifyListeners();
+      if (kDebugMode) {
+        print('❌ Error clearing read notifications:  $e');
+      }
     }
   }
 
@@ -294,16 +452,41 @@ class NotificationProvider with ChangeNotifier {
     try {
       final cutoffDate = DateTime.now().subtract(Duration(days: daysOld));
 
+      // Backup for rollback
+      final toDelete = _notifications
+          .where((n) => n.timestamp.isBefore(cutoffDate))
+          .toList();
+
+      // Optimistic delete
       _notifications.removeWhere(
         (n) => n.timestamp.isBefore(cutoffDate),
       );
-
-      // TODO: Delete from Firebase/Backend
-
       notifyListeners();
+
+      // Delete from backend
+      try {
+        await ApiService.delete(
+          '${ApiConfig.notifications}/clear-old?daysOld=${daysOld.toString()}',
+        );
+
+        if (kDebugMode) {
+          print('✅ Old notifications cleared from backend');
+        }
+      } catch (apiError) {
+        if (kDebugMode) {
+          print('⚠️ Failed to clear old notifications from backend: $apiError');
+        }
+        // Rollback if API fails
+        _notifications.addAll(toDelete);
+        _notifications = _notifications.sortByTime();
+        notifyListeners();
+      }
     } catch (e) {
       _errorMessage = e.toString();
       notifyListeners();
+      if (kDebugMode) {
+        print('❌ Error clearing old notifications: $e');
+      }
     }
   }
 
@@ -325,16 +508,41 @@ class NotificationProvider with ChangeNotifier {
     try {
       final index = _notifications.indexWhere((n) => n.id == notificationId);
       if (index != -1) {
+        // Optimistic update
         _notifications[index] = _notifications[index].copyWith(
           status:
               archive ? NotificationStatus.archived : NotificationStatus.read,
         );
-
         notifyListeners();
+
+        // Update in backend
+        try {
+          await ApiService.put(
+            '${ApiConfig.notifications}/$notificationId',
+            {'status': archive ? 'archived' : 'read'},
+          );
+
+          if (kDebugMode) {
+            print('✅ Notification dismissed in backend');
+          }
+        } catch (apiError) {
+          if (kDebugMode) {
+            print('⚠️ Failed to dismiss notification in backend: $apiError');
+          }
+          // Keep local update even if API fails
+        }
       }
     } catch (e) {
       _errorMessage = e.toString();
       notifyListeners();
+      if (kDebugMode) {
+        print('❌ Error dismissing notification: $e');
+      }
     }
+  }
+
+  /// Refresh notifications from server
+  Future<void> refresh() async {
+    await fetchNotifications();
   }
 }
