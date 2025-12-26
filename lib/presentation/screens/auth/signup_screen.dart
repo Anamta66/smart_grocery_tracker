@@ -16,11 +16,11 @@ class _SignupScreenState extends State<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _roleController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  String _selectedRole = 'customer'; // Default role
 
   @override
   void dispose() {
@@ -37,17 +37,26 @@ class _SignupScreenState extends State<SignupScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     try {
-      await authProvider.signup(
+      final success = await authProvider.signup(
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,
-        role: _roleController.text.trim(),
+        role: _selectedRole, // Use selected role
       );
 
       if (!mounted) return;
 
-      // Navigate to Dashboard on success
-      Navigator.pushReplacementNamed(context, '/dashboard');
+      if (success) {
+        // Navigate to Dashboard on success
+        Navigator.pushReplacementNamed(context, '/dashboard');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(authProvider.errorMessage ?? 'Signup failed'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -120,6 +129,48 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                   const SizedBox(height: 16),
 
+                  // Role Dropdown - NEW ADDITION
+                  DropdownButtonFormField<String>(
+                    value: _selectedRole,
+                    decoration: InputDecoration(
+                      labelText: 'I am a',
+                      prefixIcon: Icon(Icons.badge_outlined),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      filled: true,
+                      fillColor: theme.colorScheme.surface,
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'customer',
+                        child: Row(
+                          children: [
+                            Icon(Icons.person, size: 20),
+                            SizedBox(width: 8),
+                            Text('Customer'),
+                          ],
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: 'store_owner',
+                        child: Row(
+                          children: [
+                            Icon(Icons.store, size: 20),
+                            SizedBox(width: 8),
+                            Text('Store Owner'),
+                          ],
+                        ),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedRole = value!;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
                   // Password Field
                   CustomTextField(
                     controller: _passwordController,
@@ -147,7 +198,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   CustomTextField(
                     controller: _confirmPasswordController,
                     label: 'Confirm Password',
-                    hint: 'Re-enter your password',
+                    hint: 'Re-enter password',
                     obscureText: _obscureConfirmPassword,
                     prefixIcon: Icons.lock_outline,
                     suffixIcon: IconButton(
@@ -163,6 +214,9 @@ class _SignupScreenState extends State<SignupScreen> {
                       },
                     ),
                     validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please confirm your password';
+                      }
                       if (value != _passwordController.text) {
                         return 'Passwords do not match';
                       }
@@ -183,25 +237,19 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Navigate to Login
+                  // Login Link
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'Already have an account? ',
+                        'Already have an account?  ',
                         style: theme.textTheme.bodyMedium,
                       ),
                       TextButton(
                         onPressed: () {
                           Navigator.pop(context);
                         },
-                        child: Text(
-                          'Login',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.primary,
-                          ),
-                        ),
+                        child: const Text('Login'),
                       ),
                     ],
                   ),

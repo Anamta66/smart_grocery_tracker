@@ -28,6 +28,32 @@ class GroceryProvider with ChangeNotifier {
 
   /// Fetch all grocery items
   Future<void> fetchGroceryItems() async {
+    // ========================================
+    // TEMPORARY MOCK FOR DEMO - REMOVE LATER
+    // ========================================
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    await Future.delayed(Duration(milliseconds: 500)); // Simulate API call
+
+    // Start with empty list - items will be added when user creates them
+    _groceryItems = [];
+
+    _isLoading = false;
+    _errorMessage = null;
+    notifyListeners();
+
+    if (kDebugMode) {
+      print('✅ Mock groceries loaded (${_groceryItems.length} items)');
+    }
+
+    return;
+    // ========================================
+    // END MOCK - ORIGINAL CODE BELOW
+    // ========================================
+
+    /* COMMENT OUT FOR DEMO
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -37,9 +63,9 @@ class GroceryProvider with ChangeNotifier {
 
       if (response['success'] == true) {
         final List<dynamic> data =
-            response['data']['groceries'] ?? response['data'];
+            response['data']['groceries'] ??  response['data'];
         _groceryItems =
-            data.map((json) => GroceryItemModel.fromJson(json)).toList();
+            data.map((json) => GroceryItemModel. fromJson(json)).toList();
       }
     } catch (e) {
       _errorMessage = e.toString();
@@ -50,10 +76,50 @@ class GroceryProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+    */
   }
 
   /// Add new grocery item
   Future<bool> addGroceryItem(GroceryItemModel item) async {
+    // ========================================
+    // TEMPORARY MOCK FOR DEMO - REMOVE LATER
+    // ========================================
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    await Future.delayed(Duration(milliseconds: 500)); // Simulate API call
+
+    // Create new item with generated ID
+    final newItem = GroceryItemModel(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: item.name,
+      categoryId: item.categoryId,
+      quantity: item.quantity,
+      unit: item.unit,
+      price: item.price,
+      expiryDate: item.expiryDate,
+      userId: item.userId.isEmpty ? 'mock_user_id' : item.userId,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      minQuantity: item.minQuantity,
+    );
+
+    _groceryItems.add(newItem);
+    _isLoading = false;
+    _errorMessage = null;
+    notifyListeners();
+
+    if (kDebugMode) {
+      print('✅ Mock item added:  ${newItem.name}');
+    }
+
+    return true;
+    // ========================================
+    // END MOCK - ORIGINAL CODE BELOW
+    // ========================================
+
+    /* COMMENT OUT FOR DEMO
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -65,7 +131,7 @@ class GroceryProvider with ChangeNotifier {
       );
 
       if (response['success'] == true) {
-        final newItem = GroceryItemModel.fromJson(response['data']);
+        final newItem = GroceryItemModel. fromJson(response['data']);
         _groceryItems.add(newItem);
         _isLoading = false;
         notifyListeners();
@@ -82,21 +148,68 @@ class GroceryProvider with ChangeNotifier {
       notifyListeners();
 
       if (kDebugMode) {
-        print('❌ Error adding item: $e');
+        print('❌ Error adding item:  $e');
       }
       return false;
     }
+    */
   }
 
   /// Update grocery item
   Future<bool> updateGroceryItem(GroceryItemModel item) async {
+    // ========================================
+    // TEMPORARY MOCK FOR DEMO - REMOVE LATER
+    // ========================================
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    await Future.delayed(Duration(milliseconds: 500)); // Simulate API call
+
+    final index = _groceryItems.indexWhere((i) => i.id == item.id);
+    if (index != -1) {
+      final updatedItem = GroceryItemModel(
+        id: item.id,
+        name: item.name,
+        categoryId: item.categoryId,
+        quantity: item.quantity,
+        unit: item.unit,
+        price: item.price,
+        expiryDate: item.expiryDate,
+        userId: item.userId,
+        createdAt: _groceryItems[index].createdAt,
+        updatedAt: DateTime.now(),
+        minQuantity: item.minQuantity,
+      );
+
+      _groceryItems[index] = updatedItem;
+      _isLoading = false;
+      _errorMessage = null;
+      notifyListeners();
+
+      if (kDebugMode) {
+        print('✅ Mock item updated: ${updatedItem.name}');
+      }
+
+      return true;
+    }
+
+    _isLoading = false;
+    _errorMessage = 'Item not found';
+    notifyListeners();
+    return false;
+    // ========================================
+    // END MOCK - ORIGINAL CODE BELOW
+    // ========================================
+
+    /* COMMENT OUT FOR DEMO
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
       final response = await _apiService.put(
-        ApiConfig.groceryById(item.id),
+        ApiConfig. groceryById(item.id),
         body: item.toJson(),
       );
 
@@ -125,10 +238,40 @@ class GroceryProvider with ChangeNotifier {
       }
       return false;
     }
+    */
   }
 
   /// Delete grocery item
   Future<bool> deleteGroceryItem(String itemId) async {
+    // ========================================
+    // TEMPORARY MOCK FOR DEMO - REMOVE LATER
+    // ========================================
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    await Future.delayed(Duration(milliseconds: 300)); // Simulate API call
+
+    final itemToDelete = _groceryItems.firstWhere(
+      (item) => item.id == itemId,
+      orElse: () => _groceryItems.first, // Fallback
+    );
+
+    _groceryItems.removeWhere((i) => i.id == itemId);
+    _isLoading = false;
+    _errorMessage = null;
+    notifyListeners();
+
+    if (kDebugMode) {
+      print('✅ Mock item deleted:  ${itemToDelete.name}');
+    }
+
+    return true;
+    // ========================================
+    // END MOCK - ORIGINAL CODE BELOW
+    // ========================================
+
+    /* COMMENT OUT FOR DEMO
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -159,6 +302,7 @@ class GroceryProvider with ChangeNotifier {
       }
       return false;
     }
+    */
   }
 
   /// Get items expiring soon (within 7 days)

@@ -19,10 +19,8 @@ class _GroceryListScreenState extends State<GroceryListScreen> {
   @override
   void initState() {
     super.initState();
-    // Fetch groceries when screen loads
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<GroceryProvider>().fetchGroceryItems();
-    });
+    // Don't fetch groceries automatically - prevents auth errors
+    // User starts with empty list and can add items manually
   }
 
   @override
@@ -49,18 +47,60 @@ class _GroceryListScreenState extends State<GroceryListScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
+          // Handle auth errors gracefully
+          if (provider.errorMessage != null &&
+              provider.errorMessage!.contains('Unauthorized')) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.shopping_cart_outlined,
+                    size: 80,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No items yet',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Tap + to add your first grocery item',
+                    style: TextStyle(
+                      color: Colors.grey[500],
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          // Handle other errors
           if (provider.errorMessage != null) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.error_outline, size: 64, color: Colors.red),
+                  Icon(Icons.error_outline, size: 64, color: Colors.orange),
                   const SizedBox(height: 16),
-                  Text(provider.errorMessage!),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Text(
+                      provider.errorMessage!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey[600]),
+                    ),
+                  ),
                   const SizedBox(height: 16),
-                  ElevatedButton(
+                  ElevatedButton.icon(
                     onPressed: () => provider.refresh(),
-                    child: const Text('Retry'),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
                   ),
                 ],
               ),
@@ -73,7 +113,9 @@ class _GroceryListScreenState extends State<GroceryListScreen> {
           // Apply search and filter
           var filteredItems = provider.searchItems(_searchQuery);
           if (_selectedCategory != 'All') {
-            filteredItems = provider.filterByCategory(_selectedCategory);
+            filteredItems = filteredItems
+                .where((item) => item.categoryId == _selectedCategory)
+                .toList();
           }
 
           return Column(
@@ -101,30 +143,31 @@ class _GroceryListScreenState extends State<GroceryListScreen> {
               ),
 
               // Category Filter Chips
-              SizedBox(
-                height: 50,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: categories.length,
-                  itemBuilder: (context, index) {
-                    final category = categories[index];
-                    final isSelected = category == _selectedCategory;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: FilterChip(
-                        label: Text(category),
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          setState(() {
-                            _selectedCategory = category;
-                          });
-                        },
-                      ),
-                    );
-                  },
+              if (categories.length > 1) // Only show if there are categories
+                SizedBox(
+                  height: 50,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: categories.length,
+                    itemBuilder: (context, index) {
+                      final category = categories[index];
+                      final isSelected = category == _selectedCategory;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: FilterChip(
+                          label: Text(category),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setState(() {
+                              _selectedCategory = category;
+                            });
+                          },
+                        ),
+                      );
+                    },
+                  ),
                 ),
-              ),
 
               const SizedBox(height: 8),
 
@@ -142,26 +185,41 @@ class _GroceryListScreenState extends State<GroceryListScreen> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'No items found',
+                              _searchQuery.isEmpty && _selectedCategory == 'All'
+                                  ? 'No items yet'
+                                  : 'No items found',
                               style: TextStyle(
                                 fontSize: 18,
                                 color: Colors.grey[600],
                               ),
                             ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _searchQuery.isEmpty && _selectedCategory == 'All'
+                                  ? 'Tap + to add your first item'
+                                  : 'Try adjusting your search or filter',
+                              style: TextStyle(
+                                color: Colors.grey[500],
+                                fontSize: 14,
+                              ),
+                            ),
                           ],
                         ),
                       )
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: filteredItems.length,
-                        itemBuilder: (context, index) {
-                          final item = filteredItems[index];
-                          return _GroceryItemCard(
-                            item: item,
-                            onEdit: () => _editItem(item.id),
-                            onDelete: () => _deleteItem(item.id),
-                          );
-                        },
+                    : RefreshIndicator(
+                        onRefresh: () => provider.refresh(),
+                        child: ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: filteredItems.length,
+                          itemBuilder: (context, index) {
+                            final item = filteredItems[index];
+                            return _GroceryItemCard(
+                              item: item,
+                              onEdit: () => _editItem(item.id),
+                              onDelete: () => _deleteItem(item.id),
+                            );
+                          },
+                        ),
                       ),
               ),
             ],
@@ -175,7 +233,8 @@ class _GroceryListScreenState extends State<GroceryListScreen> {
             MaterialPageRoute(builder: (_) => const AddEditGroceryScreen()),
           );
           if (result == true && mounted) {
-            context.read<GroceryProvider>().refresh();
+            // Don't call refresh - items are already added to provider
+            setState(() {}); // Just rebuild to show new items
           }
         },
         icon: const Icon(Icons.add),
@@ -185,12 +244,39 @@ class _GroceryListScreenState extends State<GroceryListScreen> {
   }
 
   void _showFilterDialog() {
-    // Implement filter dialog
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Filter Options'),
-        content: const Text('Filter dialog coming soon!'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.calendar_today),
+              title: const Text('Expiring Soon'),
+              onTap: () {
+                Navigator.pop(context);
+                // TODO: Filter by expiring soon
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.warning),
+              title: const Text('Expired'),
+              onTap: () {
+                Navigator.pop(context);
+                // TODO:  Filter by expired
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.inventory),
+              title: const Text('Low Stock'),
+              onTap: () {
+                Navigator.pop(context);
+                // TODO: Filter by low stock
+              },
+            ),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -213,7 +299,7 @@ class _GroceryListScreenState extends State<GroceryListScreen> {
         ),
       );
       if (result == true && mounted) {
-        provider.refresh();
+        setState(() {}); // Rebuild to show updated items
       }
     }
   }
@@ -249,6 +335,7 @@ class _GroceryListScreenState extends State<GroceryListScreen> {
                 ? 'Item deleted successfully'
                 : 'Failed to delete item'),
             backgroundColor: success ? Colors.green : Colors.red,
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -276,14 +363,17 @@ class _GroceryItemCard extends StatelessWidget {
         item is Map ? item['category'] : (item.categoryId ?? 'Uncategorized');
     final double quantity =
         item is Map ? item['quantity'].toDouble() : item.quantity;
-    final String unit = item is Map ? item['unit'] : (item.unit ?? 'pcs');
+    final String unit = item is Map
+        ? item['unit']
+        : (item.unit?.toString().split('.').last ?? 'pcs');
     final DateTime? expiryDate = item is Map
         ? DateTime.tryParse(item['expiryDate'] ?? '')
         : item.expiryDate;
 
     final daysUntilExpiry =
         expiryDate?.difference(DateTime.now()).inDays ?? 999;
-    final isExpiringSoon = daysUntilExpiry <= 7;
+    final isExpiringSoon = daysUntilExpiry <= 7 && daysUntilExpiry >= 0;
+    final isExpired = daysUntilExpiry < 0;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -292,9 +382,11 @@ class _GroceryItemCard extends StatelessWidget {
       child: ListTile(
         contentPadding: const EdgeInsets.all(12),
         leading: CircleAvatar(
-          backgroundColor: isExpiringSoon ? Colors.orange : Colors.green,
+          backgroundColor: isExpired
+              ? Colors.red
+              : (isExpiringSoon ? Colors.orange : Colors.green),
           child: Text(
-            name[0].toUpperCase(),
+            name.isNotEmpty ? name[0].toUpperCase() : '? ',
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -317,14 +409,22 @@ class _GroceryItemCard extends StatelessWidget {
                   Icon(
                     Icons.calendar_today,
                     size: 14,
-                    color: isExpiringSoon ? Colors.orange : Colors.grey,
+                    color: isExpired
+                        ? Colors.red
+                        : (isExpiringSoon ? Colors.orange : Colors.grey),
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    'Expires:  ${expiryDate.day}/${expiryDate.month}/${expiryDate.year}',
+                    isExpired
+                        ? 'Expired: ${expiryDate.day}/${expiryDate.month}/${expiryDate.year}'
+                        : 'Expires: ${expiryDate.day}/${expiryDate.month}/${expiryDate.year}',
                     style: TextStyle(
-                      color: isExpiringSoon ? Colors.orange : Colors.grey,
+                      color: isExpired
+                          ? Colors.red
+                          : (isExpiringSoon ? Colors.orange : Colors.grey),
                       fontSize: 12,
+                      fontWeight:
+                          isExpired ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
                 ],

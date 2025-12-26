@@ -1,6 +1,7 @@
 // lib/presentation/providers/auth_provider.dart
 
 import 'package:flutter/foundation.dart';
+import 'dart:convert'; // ADD THIS IMPORT
 import '../../data/services/auth_service.dart';
 import '../../data/services/local_storage_service.dart';
 
@@ -71,39 +72,82 @@ class AuthProvider with ChangeNotifier {
   }
 
   /// Login with email and password
+  /// Login with email and password
   Future<bool> login(String email, String password) async {
+    // ========================================
+    // TEMPORARY MOCK FOR DEMO - REMOVE LATER
+    // ========================================
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
-    try {
-      final response = await AuthService.login(
-        email: email,
-        password: password,
-      );
+    await Future.delayed(Duration(milliseconds: 800)); // Simulate API call
 
-      // Extract user data from response
-      _currentUser = response['user'] ?? response['data']?['user'];
+    _currentUser = {
+      'id': DateTime.now().millisecondsSinceEpoch.toString(),
+      '_id': DateTime.now().millisecondsSinceEpoch.toString(),
+      'name': email
+          .split('@')[0]
+          .replaceAll('. ', ' ')
+          .split(' ')
+          .map((e) => e[0].toUpperCase() + e.substring(1))
+          .join(' '), // Generate name from email
+      'email': email,
+      'role': 'customer',
+    };
 
-      if (_currentUser == null) {
-        throw Exception('Login successful but user data not found');
-      }
+    // Save to storage
+    await _storage.saveString('user_data', jsonEncode(_currentUser));
+    await _storage
+        .saveAccessToken('mock_token_${DateTime.now().millisecondsSinceEpoch}');
 
-      _isLoading = false;
-      notifyListeners();
-      return true;
-    } catch (e) {
-      _errorMessage = _extractErrorMessage(e);
-      _currentUser = null;
-      _isLoading = false;
-      notifyListeners();
+    _isLoading = false;
+    _errorMessage = null;
+    notifyListeners();
 
-      if (kDebugMode) {
-        print('Login error:  $e');
-      }
-
-      return false;
+    if (kDebugMode) {
+      print('✅ Mock login successful:  ${_currentUser!['name']}');
     }
+
+    return true;
+    // ========================================
+    // END MOCK - ORIGINAL CODE BELOW
+    // ========================================
+
+    /* COMMENT OUT FOR DEMO
+  _isLoading = true;
+  _errorMessage = null;
+  notifyListeners();
+
+  try {
+    final response = await AuthService.login(
+      email: email,
+      password: password,
+    );
+
+    // Extract user data from response
+    _currentUser = response['user'] ?? response['data']? ['user'];
+
+    if (_currentUser == null) {
+      throw Exception('Login successful but user data not found');
+    }
+
+    _isLoading = false;
+    notifyListeners();
+    return true;
+  } catch (e) {
+    _errorMessage = _extractErrorMessage(e);
+    _currentUser = null;
+    _isLoading = false;
+    notifyListeners();
+
+    if (kDebugMode) {
+      print('Login error:   $e');
+    }
+
+    return false;
+  }
+  */
   }
 
   /// Register new user
@@ -113,8 +157,42 @@ class AuthProvider with ChangeNotifier {
     required String password,
     required String role,
   }) async {
+    // ========================================
+    // TEMPORARY MOCK FOR DEMO - REMOVE LATER
+    // ========================================
     _isLoading = true;
+    notifyListeners();
+
+    await Future.delayed(Duration(milliseconds: 800)); // Simulate API call
+
+    _currentUser = {
+      'id': DateTime.now().millisecondsSinceEpoch.toString(),
+      '_id': DateTime.now().millisecondsSinceEpoch.toString(),
+      'name': name,
+      'email': email,
+      'role': role,
+    };
+
+    // Save to storage
+    await _storage.saveString('user_data', jsonEncode(_currentUser));
+    await _storage
+        .saveAccessToken('mock_token_${DateTime.now().millisecondsSinceEpoch}');
+
+    _isLoading = false;
     _errorMessage = null;
+    notifyListeners();
+
+    if (kDebugMode) {
+      print('✅ Mock signup successful:  ${_currentUser!['name']}');
+    }
+
+    return true;
+    // ========================================
+    // END MOCK - ORIGINAL CODE BELOW
+    // ========================================
+
+    /* COMMENT OUT ORIGINAL CODE FOR NOW
+    _isLoading = true;
     notifyListeners();
 
     try {
@@ -142,11 +220,12 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
 
       if (kDebugMode) {
-        print('Signup error: $e');
+        print('Signup error:  $e');
       }
 
       return false;
     }
+    */
   }
 
   /// Logout user
@@ -443,7 +522,7 @@ class AuthProvider with ChangeNotifier {
     return userName![0].toUpperCase();
   }
 
-  /// Debug:  Print current state
+  /// Debug:   Print current state
   void debugPrintState() {
     if (!kDebugMode) return;
 
@@ -451,12 +530,12 @@ class AuthProvider with ChangeNotifier {
     print('📊 AUTH PROVIDER STATE');
     print('═══════════════════════════════════════');
     print('Is Authenticated: $isAuthenticated');
-    print('Is Loading: $isLoading');
+    print('Is Loading:  $isLoading');
     print('Error: $_errorMessage');
     print('User ID: $userId');
-    print('User Name: $userName');
+    print('User Name:  $userName');
     print('User Email: $userEmail');
-    print('User Role:  $userRole');
+    print('User Role:   $userRole');
     print('═══════════════════════════════════════');
   }
 }
