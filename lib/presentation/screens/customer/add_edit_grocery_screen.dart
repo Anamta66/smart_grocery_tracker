@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/grocery_provider.dart';
+import '../../../data/models/grocery_item_model.dart';
 
 /// Add/Edit Grocery Screen - Form to add or update grocery items
 /// Features:  Validation, category selection, date picker
 class AddEditGroceryScreen extends StatefulWidget {
-  final Map<String, dynamic>? item;
+  final GroceryItemModel? item;
 
   const AddEditGroceryScreen({super.key, this.item});
 
@@ -30,17 +33,43 @@ class _AddEditGroceryScreenState extends State<AddEditGroceryScreen> {
   ];
   final List<String> _units = ['Kg', 'Grams', 'Liters', 'Pieces', 'Packet'];
 
+  bool _isLoading = false;
+
   @override
   void initState() {
     super.initState();
     if (widget.item != null) {
-      _nameController.text = widget.item!['name'];
-      _quantityController.text = widget.item!['quantity'].toString();
-      _priceController.text = widget.item!['price'].toString();
-      _selectedCategory = widget.item!['category'];
-      _selectedUnit = widget.item!['unit'];
-      _expiryDate = DateTime.parse(widget.item!['expiryDate']);
+      _nameController.text = widget.item!.name;
+      _quantityController.text = widget.item!.quantity.toString();
+      _priceController.text = widget.item!.price
+          .toString(); // Fix: Remove null check since price is non-null
+
+      // Fix: Handle categoryId properly
+      if (widget.item!.categoryId.isNotEmpty) {
+        // Fix: Remove null check since categoryId is non-null
+        _selectedCategory = widget.item!.categoryId;
+      }
+
+      // Fix: Handle unit properly - GroceryUnit enum to String
+      _selectedUnit =
+          widget.item!.unit.name; // Fix: Use . name to get enum name
+
+      // Make sure it's in our list, otherwise use default
+      if (!_units.contains(_selectedUnit)) {
+        _selectedUnit = 'Kg';
+      }
+
+      _expiryDate = widget.item!.expiryDate ??
+          DateTime.now().add(const Duration(days: 7));
     }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _quantityController.dispose();
+    _priceController.dispose();
+    super.dispose();
   }
 
   @override
@@ -120,6 +149,9 @@ class _AddEditGroceryScreenState extends State<AddEditGroceryScreen> {
                         if (value == null || value.isEmpty) {
                           return 'Required';
                         }
+                        if (double.tryParse(value) == null) {
+                          return 'Invalid number';
+                        }
                         return null;
                       },
                     ),
@@ -164,6 +196,9 @@ class _AddEditGroceryScreenState extends State<AddEditGroceryScreen> {
                   if (value == null || value.isEmpty) {
                     return 'Please enter price';
                   }
+                  if (double.tryParse(value) == null) {
+                    return 'Invalid price';
+                  }
                   return null;
                 },
               ),
@@ -201,17 +236,26 @@ class _AddEditGroceryScreenState extends State<AddEditGroceryScreen> {
 
               // Submit Button
               ElevatedButton(
-                onPressed: _submitForm,
+                onPressed: _isLoading ? null : _submitForm,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: Text(
-                  isEdit ? 'Update Item' : 'Add Item',
-                  style: const TextStyle(fontSize: 16),
-                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(
+                        isEdit ? 'Update Item' : 'Add Item',
+                        style: const TextStyle(fontSize: 16),
+                      ),
               ),
             ],
           ),
@@ -220,16 +264,103 @@ class _AddEditGroceryScreenState extends State<AddEditGroceryScreen> {
     );
   }
 
-  void _submitForm() {
-    if (_formKey.currentState!.validate()) {
-      // TODO: Save to backend
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(widget.item == null ? 'Item added!' : 'Item updated!'),
-          backgroundColor: Colors.green,
-        ),
+  Future<void> _submitForm() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    final provider = context.read<GroceryProvider>();
+
+    try {
+      // Parse quantity and price with null safety
+      final quantity = double.tryParse(_quantityController.text) ?? 0.0;
+      final price = double.tryParse(_priceController.text) ?? 0.0;
+
+      // Convert string unit to GroceryUnit enum
+      final GroceryUnit unitEnum = _stringToGroceryUnit(_selectedUnit);
+
+      // Create grocery item model
+      final groceryItem = GroceryItemModel(
+        id: widget.item?.id ?? '',
+        name: _nameController.text.trim(),
+        categoryId: _selectedCategory,
+        quantity: quantity,
+        unit: unitEnum, // Fix: Pass GroceryUnit enum instead of String
+        price: price,
+        expiryDate: _expiryDate,
+        userId: widget.item?.userId ?? '',
+        createdAt: widget.item?.createdAt ?? DateTime.now(),
+        updatedAt: DateTime.now(),
+        minQuantity:
+            (widget.item?.minQuantity ?? 1.0).toInt(), // Fix: Convert to int
       );
-      Navigator.pop(context);
+
+      bool success;
+      if (widget.item == null) {
+        // Add new item
+        success = await provider.addGroceryItem(groceryItem);
+      } else {
+        // Update existing item
+        success = await provider.updateGroceryItem(groceryItem);
+      }
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content:
+                  Text(widget.item == null ? 'Item added!' : 'Item updated!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pop(context, true); // Return true to indicate success
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(provider.errorMessage ?? 'Failed to save item'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Helper method to convert String to GroceryUnit enum
+  GroceryUnit _stringToGroceryUnit(String unit) {
+    switch (unit) {
+      case 'Kg':
+        return GroceryUnit.kg;
+      case 'Grams':
+        return GroceryUnit.grams;
+      case 'Liters':
+        return GroceryUnit.liters;
+      case 'Pieces':
+        return GroceryUnit.pieces;
+      case 'Packet':
+        return GroceryUnit.pieces;
+      // Changed to a valid enum value, update as needed
+      default:
+        return GroceryUnit.kg; // Default fallback
     }
   }
 }

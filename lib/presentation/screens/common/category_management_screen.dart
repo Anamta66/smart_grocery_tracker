@@ -17,6 +17,7 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
   @override
   void initState() {
     super.initState();
+    // Fetch categories when screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<CategoryProvider>(context, listen: false).fetchCategories();
     });
@@ -54,15 +55,31 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
                 listen: false,
               );
 
-              await provider.addCategory(
-                  nameController.text.trim(), null, null);
+              final success = await provider.addCategory(
+                nameController.text.trim(),
+                null,
+                null,
+              );
 
               if (!mounted) return;
               Navigator.pop(context);
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Category added successfully')),
-              );
+              if (success) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Category added successfully'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content:
+                        Text(provider.errorMessage ?? 'Failed to add category'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
             },
           ),
         ],
@@ -101,7 +118,7 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
                 listen: false,
               );
 
-              await provider.updateCategory(
+              final success = await provider.updateCategory(
                 category.id,
                 nameController.text.trim(),
                 null,
@@ -111,9 +128,22 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
               if (!mounted) return;
               Navigator.pop(context);
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Category updated successfully')),
-              );
+              if (success) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Category updated successfully'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        provider.errorMessage ?? 'Failed to update category'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
             },
           ),
         ],
@@ -144,22 +174,65 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
     if (confirm != true) return;
 
     final provider = Provider.of<CategoryProvider>(context, listen: false);
-    await provider.deleteCategory(categoryId);
+    final success = await provider.deleteCategory(categoryId);
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Category deleted successfully')),
-    );
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Category deleted successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(provider.errorMessage ?? 'Failed to delete category'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Manage Categories'), elevation: 0),
+      appBar: AppBar(
+        title: const Text('Manage Categories'),
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              Provider.of<CategoryProvider>(context, listen: false)
+                  .fetchCategories();
+            },
+          ),
+        ],
+      ),
       body: Consumer<CategoryProvider>(
         builder: (context, provider, child) {
           if (provider.isLoading) {
             return const Center(child: CircularProgressIndicator());
+          }
+
+          if (provider.errorMessage != null) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, size: 64, color: Colors.red),
+                  const SizedBox(height: 16),
+                  Text(provider.errorMessage!),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => provider.fetchCategories(),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            );
           }
 
           if (provider.categories.isEmpty) {
@@ -187,48 +260,52 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
             );
           }
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: provider.categories.length,
-            itemBuilder: (context, index) {
-              final category = provider.categories[index];
+          return RefreshIndicator(
+            onRefresh: () => provider.fetchCategories(),
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: provider.categories.length,
+              itemBuilder: (context, index) {
+                final category = provider.categories[index];
 
-              return Card(
-                elevation: 2,
-                margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Theme.of(
-                      context,
-                    ).colorScheme.primary.withOpacity(0.1),
-                    child: Icon(
-                      Icons.category,
-                      color: Theme.of(context).colorScheme.primary,
+                return Card(
+                  elevation: 2,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: category.color.withOpacity(0.2),
+                      child: Icon(
+                        Icons.category,
+                        color: category.color,
+                      ),
+                    ),
+                    title: Text(
+                      category.name,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: category.description != null
+                        ? Text(category.description!)
+                        : null,
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.blue),
+                          onPressed: () => _showEditCategoryDialog(category),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () => _deleteCategory(category.id),
+                        ),
+                      ],
                     ),
                   ),
-                  title: Text(
-                    category.name,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.blue),
-                        onPressed: () => _showEditCategoryDialog(category),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () => _deleteCategory(category.id),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           );
         },
       ),

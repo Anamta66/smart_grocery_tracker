@@ -52,11 +52,18 @@ const {
 router.post('/register', authLimiter, validateRegister, register);
 
 /**
+ * @route   POST /api/v1/auth/signup
+ * @desc    Register a new user (alias for /register)
+ * @access  Public
+ */
+router.post('/signup', authLimiter, validateRegister, register);
+
+/**
  * @route   POST /api/v1/auth/login
  * @desc    Login user
  * @access  Public
  */
-router.post('/signup', authLimiter, validateLogin, login);
+router.post('/login', authLimiter, validateLogin, login);
 
 /**
  * @route   POST /api/v1/auth/forgot-password
@@ -71,7 +78,6 @@ router. post('/forgot-password', authLimiter, validateEmail, forgotPassword);
  * @access  Public
  */
 router.post('/reset-password', validatePasswordReset, resetPassword);
-
 // ============================================
 // PROTECTED ROUTES
 // ============================================

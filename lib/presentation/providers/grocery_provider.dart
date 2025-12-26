@@ -14,6 +14,18 @@ class GroceryProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
+  /// Get unique categories from groceries
+  List<String> get categories {
+    final categorySet = <String>{};
+    for (var item in _groceryItems) {
+      if (item.categoryId != null && item.categoryId!.isNotEmpty) {
+        categorySet.add(item.categoryId!);
+      }
+    }
+    final categories = categorySet.toList()..sort();
+    return ['All', ...categories];
+  }
+
   /// Fetch all grocery items
   Future<void> fetchGroceryItems() async {
     _isLoading = true;
@@ -24,12 +36,16 @@ class GroceryProvider with ChangeNotifier {
       final response = await _apiService.get(ApiConfig.groceries);
 
       if (response['success'] == true) {
-        final List<dynamic> data = response['data']['groceries'];
+        final List<dynamic> data =
+            response['data']['groceries'] ?? response['data'];
         _groceryItems =
             data.map((json) => GroceryItemModel.fromJson(json)).toList();
       }
     } catch (e) {
       _errorMessage = e.toString();
+      if (kDebugMode) {
+        print('❌ Error fetching groceries: $e');
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -53,6 +69,10 @@ class GroceryProvider with ChangeNotifier {
         _groceryItems.add(newItem);
         _isLoading = false;
         notifyListeners();
+
+        if (kDebugMode) {
+          print('✅ Item added successfully');
+        }
         return true;
       }
       return false;
@@ -60,6 +80,10 @@ class GroceryProvider with ChangeNotifier {
       _errorMessage = e.toString();
       _isLoading = false;
       notifyListeners();
+
+      if (kDebugMode) {
+        print('❌ Error adding item: $e');
+      }
       return false;
     }
   }
@@ -84,6 +108,10 @@ class GroceryProvider with ChangeNotifier {
         }
         _isLoading = false;
         notifyListeners();
+
+        if (kDebugMode) {
+          print('✅ Item updated successfully');
+        }
         return true;
       }
       return false;
@@ -91,26 +119,12 @@ class GroceryProvider with ChangeNotifier {
       _errorMessage = e.toString();
       _isLoading = false;
       notifyListeners();
+
+      if (kDebugMode) {
+        print('❌ Error updating item: $e');
+      }
       return false;
     }
-  }
-
-  List<GroceryItemModel> getExpiringSoonItems() {
-    final now = DateTime.now();
-    return _groceryItems.where((item) {
-      if (item.expiryDate == null) return false;
-      final difference = item.expiryDate!.difference(now).inDays;
-      return difference <= 3 && difference >= 0;
-    }).toList();
-  }
-
-  /// Get expired items
-  List<GroceryItemModel> getExpiredItems() {
-    final now = DateTime.now();
-    return _groceryItems.where((item) {
-      if (item.expiryDate == null) return false;
-      return item.expiryDate!.isBefore(now);
-    }).toList();
   }
 
   /// Delete grocery item
@@ -128,6 +142,10 @@ class GroceryProvider with ChangeNotifier {
         _groceryItems.removeWhere((i) => i.id == itemId);
         _isLoading = false;
         notifyListeners();
+
+        if (kDebugMode) {
+          print('✅ Item deleted successfully');
+        }
         return true;
       }
       return false;
@@ -135,7 +153,69 @@ class GroceryProvider with ChangeNotifier {
       _errorMessage = e.toString();
       _isLoading = false;
       notifyListeners();
+
+      if (kDebugMode) {
+        print('❌ Error deleting item: $e');
+      }
       return false;
     }
+  }
+
+  /// Get items expiring soon (within 7 days)
+  List<GroceryItemModel> getExpiringSoonItems() {
+    final now = DateTime.now();
+    return _groceryItems.where((item) {
+      if (item.expiryDate == null) return false;
+      final difference = item.expiryDate!.difference(now).inDays;
+      return difference <= 7 && difference >= 0;
+    }).toList();
+  }
+
+  /// Get expired items
+  List<GroceryItemModel> getExpiredItems() {
+    final now = DateTime.now();
+    return _groceryItems.where((item) {
+      if (item.expiryDate == null) return false;
+      return item.expiryDate!.isBefore(now);
+    }).toList();
+  }
+
+  /// Search grocery items
+  List<GroceryItemModel> searchItems(String query) {
+    if (query.isEmpty) return _groceryItems;
+
+    final lowerQuery = query.toLowerCase();
+    return _groceryItems.where((item) {
+      return item.name.toLowerCase().contains(lowerQuery) ||
+          (item.categoryId?.toLowerCase().contains(lowerQuery) ?? false);
+    }).toList();
+  }
+
+  /// Filter items by category
+  List<GroceryItemModel> filterByCategory(String categoryId) {
+    if (categoryId == 'All') return _groceryItems;
+    return _groceryItems
+        .where((item) => item.categoryId == categoryId)
+        .toList();
+  }
+
+  /// Get item by ID
+  GroceryItemModel? getItemById(String id) {
+    try {
+      return _groceryItems.firstWhere((item) => item.id == id);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Clear error message
+  void clearError() {
+    _errorMessage = null;
+    notifyListeners();
+  }
+
+  /// Refresh groceries
+  Future<void> refresh() async {
+    await fetchGroceryItems();
   }
 }
