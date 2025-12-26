@@ -55,31 +55,32 @@ class AuthService {
     required String role,
   }) async {
     try {
-      final uri = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.signup}');
+      print('🔵 Sending signup request...');
+      print('Name: $name');
+      print('Email: $email');
+      print('Password length: ${password.length}');
+      print('Role: $role');
 
-      final response = await http
-          .post(
-            uri,
-            headers: ApiConfig.headers(),
-            body: jsonEncode({
-              'name': name,
-              'email': email,
-              'password': password,
-              'role': role,
-            }),
-          )
-          .timeout(ApiConfig.timeout);
+      final response = await ApiService.post(
+        ApiConfig.signup,
+        {
+          'name': name.trim(),
+          'email': email.trim().toLowerCase(),
+          'password': password,
+          'role': 'customer', // Force it to be 'customer'
+        },
+      );
 
-      final data = _handleResponse(response);
+      print('✅ Signup response: $response');
 
-      // Save authentication data
-      if (data['success'] == true || data['token'] != null) {
-        await _saveAuthData(data);
+      if (response['success'] == true) {
+        return response;
+      } else {
+        throw Exception(response['message'] ?? 'Signup failed');
       }
-
-      return data;
     } catch (e) {
-      throw Exception('Signup failed: ${e.toString()}');
+      print('❌ Signup error: $e');
+      throw Exception('Signup failed: $e');
     }
   }
 

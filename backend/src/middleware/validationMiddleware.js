@@ -34,12 +34,13 @@ exports.handleValidationErrors = (req, res, next) => {
 /**
  * User Registration Validation
  */
+/**
+ * User Registration Validation
+ */
 exports.validateRegister = [
   body('name')
     .trim()
-    .notEmpty().withMessage('Name is required')
-    .isLength({ min: 2, max: 50 }).withMessage('Name must be between 2 and 50 characters')
-    .matches(/^[a-zA-Z\s]+$/).withMessage('Name can only contain letters and spaces'),
+    .notEmpty().withMessage('Name is required'),
 
   body('email')
     .trim()
@@ -49,13 +50,10 @@ exports.validateRegister = [
 
   body('password')
     .notEmpty().withMessage('Password is required')
-    .isLength({ min: 6 }).withMessage('Password must be at least 6 characters long')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-    .withMessage('Password must contain at least one uppercase letter, one lowercase letter, and one number'),
+    .isLength({ min: 3 }).withMessage('Password must be at least 3 characters long'),
 
   body('role')
-    .optional()
-    .isIn(['user', 'admin', 'store_owner']).withMessage('Invalid role'),
+    .optional(),
 
   exports.handleValidationErrors
 ];
@@ -63,7 +61,7 @@ exports.validateRegister = [
 /**
  * User Login Validation
  */
-exports. validateLogin = [
+exports.validateLogin = [
   body('email')
     .trim()
     .notEmpty().withMessage('Email is required')
@@ -86,8 +84,12 @@ exports.validateCreateGrocery = [
     .isLength({ min: 1, max: 100 }).withMessage('Name must be between 1 and 100 characters'),
 
   body('category')
-    .notEmpty().withMessage('Category is required')
+    .optional() // Made optional since categoryId might be used instead
     .isMongoId().withMessage('Invalid category ID'),
+
+  body('categoryId')
+    .optional() // Support both 'category' and 'categoryId'
+    .isString().withMessage('Category ID must be a string'),
 
   body('quantity')
     .notEmpty().withMessage('Quantity is required')
@@ -95,7 +97,7 @@ exports.validateCreateGrocery = [
 
   body('unit')
     .optional()
-    .isIn(['kg', 'g', 'l', 'ml', 'pcs', 'dozen', 'pack'])
+    .isIn(['Kg', 'kg', 'Grams', 'g', 'Liters', 'l', 'ml', 'Pieces', 'pcs', 'dozen', 'Packet', 'pack'])
     .withMessage('Invalid unit'),
 
   body('price')
@@ -104,22 +106,17 @@ exports.validateCreateGrocery = [
 
   body('expiryDate')
     .optional()
-    .isISO8601().withMessage('Invalid expiry date format')
-    .custom((value) => {
-      const date = new Date(value);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      if (date < today) {
-        throw new Error('Expiry date cannot be in the past');
-      }
-      return true;
-    }),
+    .isISO8601().withMessage('Invalid expiry date format'),
+    // Removed past date check for flexibility
 
   body('barcode')
     .optional()
     .isString()
     .isLength({ min: 8, max: 20 }).withMessage('Barcode must be between 8 and 20 characters'),
+
+  body('minQuantity')
+    .optional()
+    .isFloat({ min: 0 }).withMessage('Minimum quantity must be a positive number'),
 
   exports.handleValidationErrors
 ];
@@ -127,7 +124,7 @@ exports.validateCreateGrocery = [
 /**
  * Update Grocery Item Validation
  */
-exports.validateUpdateGrocery = [
+exports. validateUpdateGrocery = [
   param('id')
     .isMongoId().withMessage('Invalid grocery item ID'),
 
@@ -139,6 +136,10 @@ exports.validateUpdateGrocery = [
   body('category')
     .optional()
     .isMongoId().withMessage('Invalid category ID'),
+
+  body('categoryId')
+    .optional()
+    .isString().withMessage('Category ID must be a string'),
 
   body('quantity')
     .optional()
@@ -152,6 +153,14 @@ exports.validateUpdateGrocery = [
     .optional()
     .isISO8601().withMessage('Invalid expiry date format'),
 
+  body('unit')
+    .optional()
+    .isString().withMessage('Unit must be a string'),
+
+  body('minQuantity')
+    .optional()
+    .isFloat({ min: 0 }).withMessage('Minimum quantity must be a positive number'),
+
   exports.handleValidationErrors
 ];
 
@@ -164,15 +173,48 @@ exports. validateCreateCategory = [
     .notEmpty().withMessage('Category name is required')
     .isLength({ min: 2, max: 50 }).withMessage('Category name must be between 2 and 50 characters'),
 
+  body('description')
+    .optional()
+    .trim()
+    .isLength({ max: 200 }).withMessage('Description must be less than 200 characters'),
+
   body('icon')
     .optional()
     .isString()
-    .isLength({ max: 10 }).withMessage('Icon must be less than 10 characters'),
+    .isLength({ max: 50 }).withMessage('Icon must be less than 50 characters'),
 
   body('color')
     .optional()
-    .matches(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/)
+    .matches(/^#? ([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3}|[A-Fa-f0-9]{8})$/)
     .withMessage('Color must be a valid hex color code'),
+
+  exports.handleValidationErrors
+];
+
+/**
+ * Update Category Validation
+ */
+exports.validateUpdateCategory = [
+  param('id')
+    .isMongoId().withMessage('Invalid category ID'),
+
+  body('name')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 50 }).withMessage('Category name must be between 2 and 50 characters'),
+
+  body('description')
+    .optional()
+    .trim()
+    .isLength({ max: 200 }).withMessage('Description must be less than 200 characters'),
+
+  body('icon')
+    .optional()
+    .isString(),
+
+  body('color')
+    .optional()
+    .isString(),
 
   exports.handleValidationErrors
 ];
@@ -198,7 +240,7 @@ exports. validatePagination = [
 
   query('limit')
     .optional()
-    .isInt({ min: 1, max:  100 }).withMessage('Limit must be between 1 and 100')
+    .isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100')
     .toInt(),
 
   exports.handleValidationErrors
@@ -207,11 +249,11 @@ exports. validatePagination = [
 /**
  * Search Query Validation
  */
-exports. validateSearch = [
+exports.validateSearch = [
   query('q')
     .optional()
     .trim()
-    .isLength({ min: 1, max: 100 }).withMessage('Search query must be between 1 and 100 characters'),
+    .isLength({ min: 1, max:  100 }).withMessage('Search query must be between 1 and 100 characters'),
 
   query('category')
     .optional()
@@ -233,7 +275,7 @@ exports. validateSearch = [
 /**
  * Email Validation
  */
-exports.validateEmail = [
+exports. validateEmail = [
   body('email')
     .trim()
     .notEmpty().withMessage('Email is required')
@@ -246,7 +288,7 @@ exports.validateEmail = [
 /**
  * Password Reset Validation
  */
-exports. validatePasswordReset = [
+exports.validatePasswordReset = [
   body('token')
     .notEmpty().withMessage('Reset token is required'),
 
@@ -260,7 +302,7 @@ exports. validatePasswordReset = [
 /**
  * Update Password Validation
  */
-exports. validateUpdatePassword = [
+exports.validateUpdatePassword = [
   body('currentPassword')
     .notEmpty().withMessage('Current password is required'),
 
@@ -278,11 +320,33 @@ exports. validateUpdatePassword = [
 ];
 
 /**
+ * Notification Validation
+ */
+exports. validateCreateNotification = [
+  body('title')
+    .trim()
+    .notEmpty().withMessage('Title is required')
+    .isLength({ min: 1, max:  100 }).withMessage('Title must be between 1 and 100 characters'),
+
+  body('message')
+    .trim()
+    .notEmpty().withMessage('Message is required')
+    .isLength({ min: 1, max: 500 }).withMessage('Message must be between 1 and 500 characters'),
+
+  body('type')
+    .optional()
+    .isIn(['expiryWarning', 'expiryAlert', 'lowStock', 'restock', 'general'])
+    .withMessage('Invalid notification type'),
+
+  exports.handleValidationErrors
+];
+
+/**
  * Custom validator:  Check if value exists in database
  */
 exports.validateExists = (model, field = '_id') => {
   return async (value) => {
-    const doc = await model.findOne({ [field]: value });
+    const doc = await model.findOne({ [field]:  value });
     if (!doc) {
       throw new Error(`${model.modelName} not found`);
     }
