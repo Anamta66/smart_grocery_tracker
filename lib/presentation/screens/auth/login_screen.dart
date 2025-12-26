@@ -4,6 +4,7 @@ import '../../../presentation/providers/auth_provider.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../../core/utils/validators.dart';
+import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -140,21 +141,21 @@ class _LoginScreenState extends State<LoginScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
-                        "Don't have an account? ",
-                        style: theme.textTheme.bodyMedium,
+                      Flexible(
+                        child: const Text(
+                          "Don't have an account? ",
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                       TextButton(
                         onPressed: () {
-                          Navigator.pushNamed(context, '/signup');
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const SignupScreen()),
+                          );
                         },
-                        child: Text(
-                          'Sign Up',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.primary,
-                          ),
-                        ),
+                        child: const Text('Sign Up'),
                       ),
                     ],
                   ),
